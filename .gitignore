@@ -1,0 +1,14 @@
+# .env — NUNCA subir al repo
+.env
+
+# Build outputs
+bin/
+obj/
+
+# VS/Rider
+.vs/
+*.user
+.idea/
+
+# Logs
+*.log
