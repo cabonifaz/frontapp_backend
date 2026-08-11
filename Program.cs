@@ -9,6 +9,9 @@ Env.Load();
 
 var builder = WebApplication.CreateBuilder(args);
 
+// ── CLAVE: Permitir que escuche peticiones desde cualquier IP de la red local (Wi-Fi) ──
+builder.WebHost.UseUrls("http://0.0.0.0:5000");
+
 // ── Inyectar variables de .env en IConfiguration ─────────────────────────────
 builder.Configuration.AddEnvironmentVariables();
 

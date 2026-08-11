@@ -93,9 +93,9 @@ public class RankingController(AppDbContext db) : ControllerBase
             outParams: new()
             {
                 ["p_posicion"]       = MySqlDbType.Int32,
-                ["p_pagina_en_lista"]= MySqlDbType.Int32
+                ["p_pagina"]= MySqlDbType.Int32
             });
 
-        return Ok(new { posicion = result["p_posicion"], paginaEnLista = result["p_pagina_en_lista"] });
+        return Ok(new { posicion = result["p_posicion"], paginaEnLista = result["p_pagina"] });
     }
 }

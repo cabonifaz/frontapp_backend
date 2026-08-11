@@ -74,18 +74,20 @@ public class AuthController(AppDbContext db, IConfiguration config) : Controller
         using var conn = db.CreateConnection();
         var result = await SpHelper.ExecuteAsync(conn, "sp_auth_registrar",
             inParams: new()
-            {
-                ["p_nombre"]           = body.GetValueOrDefault("nombre"),
-                ["p_apellidos"]        = body.GetValueOrDefault("apellidos"),
-                ["p_correo"]           = body.GetValueOrDefault("correo"),
-                ["p_contrasena_hash"]  = body.GetValueOrDefault("contrasena_hash"),
-                ["p_id_proveedor_auth"]= body.GetValueOrDefault("id_proveedor_auth"),
-                ["p_telefono"]         = body.GetValueOrDefault("telefono"),
-                ["p_id_pais"]          = body.GetValueOrDefault("id_pais"),
-                ["p_id_ciudad"]        = body.GetValueOrDefault("id_ciudad"),
-                ["p_id_distrito"]      = body.GetValueOrDefault("id_distrito"),
-                ["p_es_profesor"]      = body.GetValueOrDefault("es_profesor") ?? 0
-            },
+{
+    ["p_nombre"]           = body.GetValueOrDefault("nombre"),
+    ["p_apellidos"]        = body.GetValueOrDefault("apellidos"),
+    ["p_correo"]           = body.GetValueOrDefault("correo"),
+    ["p_contrasena_hash"]  = body.GetValueOrDefault("contrasena_hash"),
+    ["p_id_proveedor_auth"]= body.GetValueOrDefault("id_proveedor_auth"),
+    ["p_telefono"]         = body.GetValueOrDefault("telefono"),
+    ["p_direccion"]        = body.GetValueOrDefault("direccion"),   // ← agregar esta línea
+    ["p_foto_perfil_url"] = body.GetValueOrDefault("foto_perfil_url"),
+    ["p_id_pais"]          = body.GetValueOrDefault("id_pais"),
+    ["p_id_ciudad"]        = body.GetValueOrDefault("id_ciudad"),
+    ["p_id_distrito"]      = body.GetValueOrDefault("id_distrito"),
+    ["p_es_profesor"]      = body.GetValueOrDefault("es_profesor") ?? 0
+},
             outParams: new()
             {
                 ["p_id_usuario_nuevo"] = MySqlDbType.Int32,

@@ -81,16 +81,20 @@ public class MaestroController(AppDbContext db) : ControllerBase
     }
 
     // PUT api/Maestro/configuraciones
+    // SP: sp_maestro_actualizar_configuracion(p_codigo, p_valor, p_valor_numerico, p_id_usuario → OUT p_exito, p_mensaje)
+    [Authorize]
     [HttpPut("configuraciones")]
     public async Task<IActionResult> ActualizarConfiguracion([FromBody] Dictionary<string, object?> body)
     {
         using var conn = db.CreateConnection();
+        var idUsuario = JwtHelper.GetUserId(HttpContext); // ← faltaba; el SP lo pide como IN p_id_usuario
         var result = await SpHelper.ExecuteAsync(conn, "sp_maestro_actualizar_configuracion",
             inParams: new()
             {
-                ["p_codigo"]        = body.GetValueOrDefault("codigo"),
-                ["p_valor"]         = body.GetValueOrDefault("valor"),
-                ["p_valor_numerico"]= body.GetValueOrDefault("valor_numerico")
+                ["p_codigo"]         = body.GetValueOrDefault("codigo"),
+                ["p_valor"]          = body.GetValueOrDefault("valor"),
+                ["p_valor_numerico"] = body.GetValueOrDefault("valor_numerico"),
+                ["p_id_usuario"]     = idUsuario   // ← parámetro que faltaba
             },
             outParams: new()
             {

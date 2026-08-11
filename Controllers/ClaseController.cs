@@ -91,7 +91,7 @@ public class ClaseController(AppDbContext db) : ControllerBase
                 ["p_exito"]              = MySqlDbType.Byte,
                 ["p_mensaje"]            = MySqlDbType.VarChar,
                 ["p_puntos_ganados"]     = MySqlDbType.Decimal,
-                ["p_nuevo_puntaje_total"]= MySqlDbType.Decimal
+                ["p_nuevo_puntaje"]= MySqlDbType.Decimal
             });
 
         if (Convert.ToInt32(result["p_exito"]) == 0)
@@ -106,21 +106,29 @@ public class ClaseController(AppDbContext db) : ControllerBase
         });
     }
 
-    // POST api/Clase/{id}/cancelar
+// POST api/Clase/{id}/cancelar
     [HttpPost("{id:int}/cancelar")]
     public async Task<IActionResult> Cancelar(int id)
     {
         var idUsuario = JwtHelper.GetUserId(HttpContext);
         using var conn = db.CreateConnection();
-        // El SP de cancelar manual reutiliza la lógica de sp_clase_cancelar_por_tiempo
-        // o puede tener su propio SP — aquí usamos el de tiempo con el id forzado
-        var result = await SpHelper.ExecuteAsync(conn, "sp_clase_cancelar_por_tiempo",
+
+        var result = await SpHelper.ExecuteAsync(conn, "sp_clase_cancelar",
+            inParams: new()
+            {
+                ["p_id_clase"]   = id,
+                ["p_id_usuario"] = idUsuario
+            },
             outParams: new()
             {
-                ["p_registros_cancelados"] = MySqlDbType.Int32
+                ["p_exito"]   = MySqlDbType.Byte,
+                ["p_mensaje"] = MySqlDbType.VarChar
             });
 
-        return Ok(new { exito = true, mensaje = "Clase cancelada." });
+        if (Convert.ToInt32(result["p_exito"]) == 0)
+            return BadRequest(new { mensaje = result["p_mensaje"] });
+
+        return Ok(new { exito = true, mensaje = result["p_mensaje"] });
     }
 
     // POST api/Clase/{id}/feedback
