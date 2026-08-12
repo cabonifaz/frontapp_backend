@@ -1,5 +1,6 @@
 using MySqlConnector;
 using System.Data;
+using System.Text.Json; // <-- IMPORTANTE: Se agregó esta librería para leer JsonElement
 
 namespace AppFronton.Helpers;
 
@@ -118,11 +119,15 @@ public static class SpHelper
     }
 
     // ── Privados ────────────────────────────────────────────────────────────
+    
     private static void AddInputParams(MySqlCommand cmd, Dictionary<string, object?>? inParams)
     {
         if (inParams == null) return;
         foreach (var (key, value) in inParams)
-            cmd.Parameters.AddWithValue($"@{key}", value ?? DBNull.Value);
+        {
+            // CAMBIO AQUÍ: Llamamos a ExtractValue para limpiar el JSON
+            cmd.Parameters.AddWithValue($"@{key}", ExtractValue(value));
+        }
     }
 
     private static void AddOutputParams(MySqlCommand cmd, Dictionary<string, MySqlDbType>? outParams)
@@ -137,5 +142,24 @@ public static class SpHelper
             };
             cmd.Parameters.Add(p);
         }
+    }
+
+    // NUEVO MÉTODO DE JAZIR: Desempaqueta los JsonElement que envía .NET
+    private static object ExtractValue(object? value)
+    {
+        if (value is JsonElement je)
+        {
+            return je.ValueKind switch
+            {
+                JsonValueKind.Number =>
+                    je.TryGetInt64(out var l) ? (object)l : je.GetDouble(),
+                JsonValueKind.String  => je.GetString() ?? (object)DBNull.Value,
+                JsonValueKind.True    => true,
+                JsonValueKind.False   => false,
+                JsonValueKind.Null    => DBNull.Value,
+                _                     => DBNull.Value,
+            };
+        }
+        return value ?? DBNull.Value;
     }
 }
