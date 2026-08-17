@@ -73,12 +73,17 @@ public class AuthController(AppDbContext db, IConfiguration config) : Controller
     public async Task<IActionResult> Registrar([FromBody] Dictionary<string, object?> body)
     {
         using var conn = db.CreateConnection();
+        
+        // Limpiar el correo
+        var correoBruto = ObtenerValor(body, "correo")?.ToString() ?? "";
+        var correoLimpio = correoBruto.Trim().ToLower();
+
         var result = await SpHelper.ExecuteAsync(conn, "sp_auth_registrar",
             inParams: new()
             {
                 ["p_nombre"]            = ObtenerValor(body, "nombre"),
                 ["p_apellidos"]         = ObtenerValor(body, "apellidos"),
-                ["p_correo"]            = ObtenerValor(body, "correo"),
+                ["p_correo"]            = correoLimpio, // Usamos la variable limpia
                 ["p_contrasena_hash"]   = ObtenerValor(body, "contrasena_hash"),
                 ["p_id_proveedor_auth"] = ObtenerValor(body, "id_proveedor_auth"),
                 ["p_telefono"]          = ObtenerValor(body, "telefono"),
@@ -107,8 +112,11 @@ public class AuthController(AppDbContext db, IConfiguration config) : Controller
     public async Task<IActionResult> VerificarCorreo([FromQuery] string correo)
     {
         using var conn = db.CreateConnection();
+        // Limpiar el correo antes de enviarlo al SP
+        var correoLimpio = correo?.Trim().ToLower() ?? "";
+
         var result = await SpHelper.ExecuteAsync(conn, "sp_auth_verificar_correo_disponible",
-            inParams: new() { ["p_correo"] = correo },
+            inParams: new() { ["p_correo"] = correoLimpio },
             outParams: new() { ["p_disponible"] = MySqlDbType.Byte });
 
         return Ok(new { disponible = Convert.ToInt32(result["p_disponible"]) == 1 });
