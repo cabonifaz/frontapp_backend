@@ -20,7 +20,11 @@ public static class SpHelper
         string spName,
         Dictionary<string, object?>? inParams = null)
     {
-        await conn.OpenAsync();
+        if (conn.State != ConnectionState.Open)
+        {
+            await conn.OpenAsync();
+        }
+
         using var cmd = new MySqlCommand(spName, conn)
         {
             CommandType = CommandType.StoredProcedure
@@ -52,7 +56,11 @@ public static class SpHelper
         Dictionary<string, object?>? inParams = null,
         Dictionary<string, MySqlDbType>? outParams = null)
     {
-        await conn.OpenAsync();
+        if (conn.State != ConnectionState.Open)
+        {
+            await conn.OpenAsync();
+        }
+
         using var cmd = new MySqlCommand(spName, conn)
         {
             CommandType = CommandType.StoredProcedure
@@ -84,7 +92,11 @@ public static class SpHelper
             Dictionary<string, object?>? inParams = null,
             Dictionary<string, MySqlDbType>? outParams = null)
     {
-        await conn.OpenAsync();
+        if (conn.State != ConnectionState.Open)
+        {
+            await conn.OpenAsync();
+        }
+
         using var cmd = new MySqlCommand(spName, conn)
         {
             CommandType = CommandType.StoredProcedure
@@ -125,7 +137,7 @@ public static class SpHelper
         if (inParams == null) return;
         foreach (var (key, value) in inParams)
         {
-            // CAMBIO AQUÍ: Llamamos a ExtractValue para limpiar el JSON
+            // Llamamos a ExtractValue para limpiar el JSON
             cmd.Parameters.AddWithValue($"@{key}", ExtractValue(value));
         }
     }
@@ -144,7 +156,7 @@ public static class SpHelper
         }
     }
 
-    // NUEVO MÉTODO DE JAZIR: Desempaqueta los JsonElement que envía .NET
+    // Desempaqueta los JsonElement que envía .NET
     private static object ExtractValue(object? value)
     {
         if (value is JsonElement je)

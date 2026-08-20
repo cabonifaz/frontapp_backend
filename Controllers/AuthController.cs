@@ -68,13 +68,112 @@ public class AuthController(AppDbContext db, IConfiguration config) : Controller
         return Ok(new { token, idUsuario, esNuevo });
     }
 
+    // NUEVO: POST api/Auth/facebook
+    [HttpPost("facebook")]
+    public async Task<IActionResult> FacebookLogin([FromBody] Dictionary<string, string> body)
+    {
+        var accessToken = body.GetValueOrDefault("accessToken");
+        if (string.IsNullOrEmpty(accessToken))
+            return BadRequest(new { mensaje = "Token no proporcionado" });
+
+        // 1. Validar Token con la API de Facebook
+        using var client = new HttpClient();
+        var fbUrl = $"https://graph.facebook.com/me?fields=id,name,email,picture.type(large)&access_token={accessToken}";
+        var response = await client.GetAsync(fbUrl);
+
+        if (!response.IsSuccessStatusCode)
+            return Unauthorized(new { mensaje = "Token de Facebook inválido." });
+
+        // 2. Extraer los datos del perfil
+        var fbData = await response.Content.ReadAsStringAsync();
+        using var doc = JsonDocument.Parse(fbData);
+        var root = doc.RootElement;
+
+        var email = root.TryGetProperty("email", out var emailProp) ? emailProp.GetString() : null;
+        var name = root.TryGetProperty("name", out var nameProp) ? nameProp.GetString() : "Usuario de Facebook";
+        
+        string? pictureUrl = null;
+        if (root.TryGetProperty("picture", out var picProp) && picProp.TryGetProperty("data", out var dataProp) && dataProp.TryGetProperty("url", out var urlProp))
+        {
+            pictureUrl = urlProp.GetString();
+        }
+
+        if (string.IsNullOrEmpty(email))
+            return BadRequest(new { mensaje = "Se requiere el correo electrónico de Facebook. Por favor acepta los permisos de correo." });
+
+        using var conn = db.CreateConnection();
+        
+        // 3. Revisar si el correo es nuevo en nuestra base de datos
+        var resultCheck = await SpHelper.ExecuteAsync(conn, "sp_auth_verificar_correo_disponible",
+            inParams: new() { ["p_correo"] = email },
+            outParams: new() { ["p_disponible"] = MySqlDbType.Byte });
+
+        bool esNuevo = Convert.ToInt32(resultCheck["p_disponible"]) == 1;
+
+        // 4. Si el usuario no existe, registrarlo con ID_Proveedor = 50 (Facebook)
+        if (esNuevo)
+        {
+            var partesNombre = name.Split(' ', 2);
+            var nombre = partesNombre[0];
+            var apellidos = partesNombre.Length > 1 ? partesNombre[1] : "";
+
+            var resultReg = await SpHelper.ExecuteAsync(conn, "sp_auth_registrar",
+                inParams: new()
+                {
+                    ["p_nombre"]            = nombre,
+                    ["p_apellidos"]         = apellidos,
+                    ["p_correo"]            = email,
+                    ["p_contrasena_hash"]   = null,
+                    ["p_id_proveedor_auth"] = 50,
+                    ["p_telefono"]          = null,
+                    ["p_direccion"]         = null,
+                    ["p_foto_perfil_url"]   = pictureUrl,
+                    ["p_id_pais"]           = null,
+                    ["p_id_ciudad"]         = null,
+                    ["p_id_distrito"]       = null,
+                    ["p_es_profesor"]       = 0
+                },
+                outParams: new()
+                {
+                    ["p_id_usuario_nuevo"] = MySqlDbType.Int32,
+                    ["p_exito"]            = MySqlDbType.Byte,
+                    ["p_mensaje"]          = MySqlDbType.VarChar
+                });
+
+            if (Convert.ToInt32(resultReg["p_exito"]) == 0)
+                return BadRequest(new { mensaje = "Error al crear cuenta: " + resultReg["p_mensaje"] });
+        }
+
+        // 5. Iniciar sesión cruzando el SP nativo (obtiene el ID final y valida estado)
+        var resultLogin = await SpHelper.ExecuteAsync(conn, "sp_auth_login_proveedor",
+            inParams: new()
+            {
+                ["p_correo"]       = email,
+                ["p_id_proveedor"] = 50
+            },
+            outParams: new()
+            {
+                ["p_id_usuario"] = MySqlDbType.Int32,
+                ["p_es_nuevo"]   = MySqlDbType.Byte,
+                ["p_exito"]      = MySqlDbType.Byte
+            });
+
+        if (Convert.ToInt32(resultLogin["p_exito"]) == 0)
+            return Unauthorized(new { mensaje = "Error iniciando sesión en el sistema." });
+
+        // 6. Generar token de aplicación
+        var idUsuario = Convert.ToInt32(resultLogin["p_id_usuario"]);
+        var token = JwtHelper.GenerateToken(idUsuario, email, config);
+
+        return Ok(new { token, idUsuario, esNuevo });
+    }
+
     // POST api/Auth/registrar
     [HttpPost("registrar")]
     public async Task<IActionResult> Registrar([FromBody] Dictionary<string, object?> body)
     {
         using var conn = db.CreateConnection();
         
-        // Limpiar el correo
         var correoBruto = ObtenerValor(body, "correo")?.ToString() ?? "";
         var correoLimpio = correoBruto.Trim().ToLower();
 
@@ -83,7 +182,7 @@ public class AuthController(AppDbContext db, IConfiguration config) : Controller
             {
                 ["p_nombre"]            = ObtenerValor(body, "nombre"),
                 ["p_apellidos"]         = ObtenerValor(body, "apellidos"),
-                ["p_correo"]            = correoLimpio, // Usamos la variable limpia
+                ["p_correo"]            = correoLimpio,
                 ["p_contrasena_hash"]   = ObtenerValor(body, "contrasena_hash"),
                 ["p_id_proveedor_auth"] = ObtenerValor(body, "id_proveedor_auth"),
                 ["p_telefono"]          = ObtenerValor(body, "telefono"),
@@ -112,7 +211,6 @@ public class AuthController(AppDbContext db, IConfiguration config) : Controller
     public async Task<IActionResult> VerificarCorreo([FromQuery] string correo)
     {
         using var conn = db.CreateConnection();
-        // Limpiar el correo antes de enviarlo al SP
         var correoLimpio = correo?.Trim().ToLower() ?? "";
 
         var result = await SpHelper.ExecuteAsync(conn, "sp_auth_verificar_correo_disponible",
@@ -122,10 +220,6 @@ public class AuthController(AppDbContext db, IConfiguration config) : Controller
         return Ok(new { disponible = Convert.ToInt32(result["p_disponible"]) == 1 });
     }
 
-    /// <summary>
-    /// Convierte objetos deserializados desde JSON (JsonElement) a tipos nativos de C#
-    /// para evitar el error System.NotSupportedException en MySqlConnector.
-    /// </summary>
     private static object? ObtenerValor(Dictionary<string, object?> dict, string clave)
     {
         if (!dict.TryGetValue(clave, out var val) || val is null)
