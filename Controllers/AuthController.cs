@@ -68,7 +68,7 @@ public class AuthController(AppDbContext db, IConfiguration config) : Controller
         return Ok(new { token, idUsuario, esNuevo });
     }
 
-    // NUEVO: POST api/Auth/facebook
+    // POST api/Auth/facebook
     [HttpPost("facebook")]
     public async Task<IActionResult> FacebookLogin([FromBody] Dictionary<string, string> body)
     {
@@ -168,6 +168,104 @@ public class AuthController(AppDbContext db, IConfiguration config) : Controller
         return Ok(new { token, idUsuario, esNuevo });
     }
 
+    // NUEVO: POST api/Auth/google
+    [HttpPost("google")]
+    public async Task<IActionResult> GoogleLogin([FromBody] Dictionary<string, string> body)
+    {
+        var idToken = body.GetValueOrDefault("idToken");
+        if (string.IsNullOrEmpty(idToken))
+            return BadRequest(new { mensaje = "Token no proporcionado" });
+
+        // 1. Validar Token de Google mediante su API oficial
+        using var client = new HttpClient();
+        var googleUrl = $"https://oauth2.googleapis.com/tokeninfo?id_token={idToken}";
+        var response = await client.GetAsync(googleUrl);
+
+        if (!response.IsSuccessStatusCode)
+            return Unauthorized(new { mensaje = "Token de Google inválido." });
+
+        // 2. Extraer información del perfil del payload
+        var googleData = await response.Content.ReadAsStringAsync();
+        using var doc = JsonDocument.Parse(googleData);
+        var root = doc.RootElement;
+
+        var email = root.TryGetProperty("email", out var emailProp) ? emailProp.GetString() : null;
+        var name = root.TryGetProperty("name", out var nameProp) ? nameProp.GetString() : "Usuario de Google";
+        var pictureUrl = root.TryGetProperty("picture", out var picProp) ? picProp.GetString() : null;
+
+        if (string.IsNullOrEmpty(email))
+            return BadRequest(new { mensaje = "Se requiere el correo electrónico asociado a la cuenta de Google." });
+
+        using var conn = db.CreateConnection();
+
+        // 3. Verificar si el usuario ya existe en la base de datos
+        var resultCheck = await SpHelper.ExecuteAsync(conn, "sp_auth_verificar_correo_disponible",
+            inParams: new() { ["p_correo"] = email },
+            outParams: new() { ["p_disponible"] = MySqlDbType.Byte });
+
+        bool esNuevo = Convert.ToInt32(resultCheck["p_disponible"]) == 1;
+
+        // NOTA: Ajusta el '40' si en tu tabla de proveedores asignaste otro ID numérico para Google
+        const int idProveedorGoogle = 48; 
+
+        // 4. Si es nuevo, registrar al usuario
+        if (esNuevo)
+        {
+            var partesNombre = name.Split(' ', 2);
+            var nombre = partesNombre[0];
+            var apellidos = partesNombre.Length > 1 ? partesNombre[1] : "";
+
+            var resultReg = await SpHelper.ExecuteAsync(conn, "sp_auth_registrar",
+                inParams: new()
+                {
+                    ["p_nombre"]            = nombre,
+                    ["p_apellidos"]         = apellidos,
+                    ["p_correo"]            = email,
+                    ["p_contrasena_hash"]   = null,
+                    ["p_id_proveedor_auth"] = idProveedorGoogle,
+                    ["p_telefono"]          = null,
+                    ["p_direccion"]         = null,
+                    ["p_foto_perfil_url"]   = pictureUrl,
+                    ["p_id_pais"]           = null,
+                    ["p_id_ciudad"]         = null,
+                    ["p_id_distrito"]       = null,
+                    ["p_es_profesor"]       = 0
+                },
+                outParams: new()
+                {
+                    ["p_id_usuario_nuevo"] = MySqlDbType.Int32,
+                    ["p_exito"]            = MySqlDbType.Byte,
+                    ["p_mensaje"]          = MySqlDbType.VarChar
+                });
+
+            if (Convert.ToInt32(resultReg["p_exito"]) == 0)
+                return BadRequest(new { mensaje = "Error al crear cuenta: " + resultReg["p_mensaje"] });
+        }
+
+        // 5. Iniciar sesión mediante el SP de autenticación con proveedor
+        var resultLogin = await SpHelper.ExecuteAsync(conn, "sp_auth_login_proveedor",
+            inParams: new()
+            {
+                ["p_correo"]       = email,
+                ["p_id_proveedor"] = idProveedorGoogle
+            },
+            outParams: new()
+            {
+                ["p_id_usuario"] = MySqlDbType.Int32,
+                ["p_es_nuevo"]   = MySqlDbType.Byte,
+                ["p_exito"]      = MySqlDbType.Byte
+            });
+
+        if (Convert.ToInt32(resultLogin["p_exito"]) == 0)
+            return Unauthorized(new { mensaje = "Error iniciando sesión en el sistema." });
+
+        // 6. Generar token JWT de la aplicación
+        var idUsuario = Convert.ToInt32(resultLogin["p_id_usuario"]);
+        var token = JwtHelper.GenerateToken(idUsuario, email, config);
+
+        return Ok(new { token, idUsuario, esNuevo });
+    }
+
     // POST api/Auth/registrar
     [HttpPost("registrar")]
     public async Task<IActionResult> Registrar([FromBody] Dictionary<string, object?> body)
@@ -187,7 +285,7 @@ public class AuthController(AppDbContext db, IConfiguration config) : Controller
                 ["p_id_proveedor_auth"] = ObtenerValor(body, "id_proveedor_auth"),
                 ["p_telefono"]          = ObtenerValor(body, "telefono"),
                 ["p_direccion"]         = ObtenerValor(body, "direccion"),
-                ["p_foto_perfil_url"]  = ObtenerValor(body, "foto_perfil_url"),
+                ["p_foto_perfil_url"]   = ObtenerValor(body, "foto_perfil_url"),
                 ["p_id_pais"]           = ObtenerValor(body, "id_pais"),
                 ["p_id_ciudad"]         = ObtenerValor(body, "id_ciudad"),
                 ["p_id_distrito"]       = ObtenerValor(body, "id_distrito"),
