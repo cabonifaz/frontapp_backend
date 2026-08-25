@@ -12,6 +12,9 @@ namespace AppFronton.Controllers;
 public class SolicitudController(AppDbContext db) : ControllerBase
 {
     // GET api/Solicitud/mis-solicitudes
+    // Devuelve { partido: {...}, solicitudes: [...] }
+    // El SP retorna filas con información del partido repetida en cada fila de solicitud.
+    // Se extrae el partido de la primera fila y se devuelven todas las filas como solicitudes.
     [HttpGet("mis-solicitudes")]
     public async Task<IActionResult> MisSolicitudes()
     {
@@ -19,7 +22,31 @@ public class SolicitudController(AppDbContext db) : ControllerBase
         using var conn = db.CreateConnection();
         var rows = await SpHelper.QueryAsync(conn, "sp_solicitud_listar_mis_solicitudes",
             new() { ["p_id_usuario"] = idUsuario });
-        return Ok(rows);
+
+        if (rows.Count == 0)
+            return Ok(new { partido = (object?)null, solicitudes = new List<object>() });
+
+        // El SP devuelve: filas de retadores con info del partido embebida en cada fila.
+        // Extraemos el partido del primer row y devolvemos todos los rows como solicitudes.
+        var primeraFila = rows[0];
+        var partido = new Dictionary<string, object?>
+        {
+            ["id_partido"]      = primeraFila.GetValueOrDefault("id_partido"),
+            ["nombre_cancha"]   = primeraFila.GetValueOrDefault("nombre_cancha"),
+            ["foto_cancha_url"] = primeraFila.GetValueOrDefault("foto_cancha_url"),
+            ["fecha"]           = primeraFila.GetValueOrDefault("fecha"),
+            ["hora"]            = primeraFila.GetValueOrDefault("hora"),
+        };
+
+        // Si id_partido es null, significa que el usuario no tiene partido activo
+        var tienePartido = primeraFila.GetValueOrDefault("id_partido") != null
+                        && primeraFila.GetValueOrDefault("id_partido") is not DBNull;
+
+        return Ok(new
+        {
+            partido     = tienePartido ? partido : null,
+            solicitudes = rows
+        });
     }
 
     // POST api/Solicitud/{idSolicitud}/aceptar/{idRetador}
