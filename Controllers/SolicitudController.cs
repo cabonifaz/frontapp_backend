@@ -97,7 +97,7 @@ public class SolicitudController(AppDbContext db) : ControllerBase
         return Ok(new { exito = true, mensaje = result["p_mensaje"], nombreRetador = result["p_nombre_retador"] });
     }
 
-    // POST api/Solicitud/{idSolicitud}/rechazar/{idRetador}
+    // POST api/Solicitud/{idSolicitud}/rechazar/{idRetadore}
     [HttpPost("{idSolicitud:int}/rechazar/{idRetador:int}")]
     public async Task<IActionResult> RechazarRetador(int idSolicitud, int idRetador)
     {
