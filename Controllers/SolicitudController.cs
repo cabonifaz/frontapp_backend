@@ -11,7 +11,7 @@ namespace AppFronton.Controllers;
 [Authorize]
 public class SolicitudController(AppDbContext db) : ControllerBase
 {
-    // GET api/Solicitud/mis-solicitudes
+   // GET api/Solicitud/mis-solicitudes
     [HttpGet("mis-solicitudes")]
     public async Task<IActionResult> MisSolicitudes()
     {
@@ -19,7 +19,56 @@ public class SolicitudController(AppDbContext db) : ControllerBase
         using var conn = db.CreateConnection();
         var rows = await SpHelper.QueryAsync(conn, "sp_solicitud_listar_mis_solicitudes",
             new() { ["p_id_usuario"] = idUsuario });
-        return Ok(rows);
+
+        if (rows.Count == 0)
+            return Ok(new { partidos = new List<object>(), solicitudes = new List<object>() });
+
+        // 1. FILTRAR ESTRICTAMENTE: Descartar cualquier fila cuyo estado sea 0 (cancelado)
+        var filasActivas = rows.Where(r => 
+        {
+            if (r.TryGetValue("estado", out var est) && est != null)
+            {
+                return Convert.ToInt32(est) != 0;
+            }
+            return true;
+        }).ToList();
+
+        if (filasActivas.Count == 0)
+            return Ok(new { partidos = new List<object>(), solicitudes = new List<object>() });
+
+        // 2. Agrupar solo las filas activas por id_partido
+        var partidosAgrupados = filasActivas
+            .GroupBy(r => r["id_partido"])
+            .Where(g => g.Key != null)
+            .Select(g => new
+            {
+                id_partido      = g.Key,
+                fecha           = g.First()["fecha"],
+                hora            = g.First()["hora"],
+                nombre_cancha   = g.First()["nombre_cancha"],
+                foto_cancha_url = g.First().ContainsKey("foto_cancha_url") ? g.First()["foto_cancha_url"] : null,
+                estado          = g.First().ContainsKey("estado") ? g.First()["estado"] : 1
+            })
+            .ToList<object>();
+
+        // 3. Mapear solicitudes únicamente de los partidos activos
+        var solicitudes = filasActivas
+            .Where(r => r["id_solicitud"] != null)
+            .Select(r => new
+            {
+                id_solicitud    = r["id_solicitud"],
+                id_partido      = r["id_partido"],
+                id_usuario      = r["id_usuario"],
+                nombre          = r["nombre"],
+                apellidos       = r["apellidos"],
+                foto_perfil_url = r["foto_perfil_url"],
+                fecha           = r["fecha"],
+                hora            = r["hora"],
+                nombre_cancha   = r["nombre_cancha"],
+            })
+            .ToList<object>();
+
+        return Ok(new { partidos = partidosAgrupados, solicitudes });
     }
 
     // POST api/Solicitud/{idSolicitud}/aceptar/{idRetador}

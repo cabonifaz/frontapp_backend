@@ -131,7 +131,8 @@ public class AuthController(AppDbContext db, IConfiguration config) : Controller
                     ["p_id_pais"]           = null,
                     ["p_id_ciudad"]         = null,
                     ["p_id_distrito"]       = null,
-                    ["p_es_profesor"]       = 0
+                    ["p_es_profesor"]       = 0,
+                    ["p_id_genero"]         = null // Facebook no pide género en tu flujo actual -> cae en avatar_general
                 },
                 outParams: new()
                 {
@@ -229,7 +230,8 @@ public class AuthController(AppDbContext db, IConfiguration config) : Controller
                     ["p_id_pais"]           = null,
                     ["p_id_ciudad"]         = null,
                     ["p_id_distrito"]       = null,
-                    ["p_es_profesor"]       = 0
+                    ["p_es_profesor"]       = 0,
+                    ["p_id_genero"]         = null // Google no pide género en tu flujo actual -> cae en avatar_general
                 },
                 outParams: new()
                 {
@@ -289,7 +291,8 @@ public class AuthController(AppDbContext db, IConfiguration config) : Controller
                 ["p_id_pais"]           = ObtenerValor(body, "id_pais"),
                 ["p_id_ciudad"]         = ObtenerValor(body, "id_ciudad"),
                 ["p_id_distrito"]       = ObtenerValor(body, "id_distrito"),
-                ["p_es_profesor"]       = ObtenerValor(body, "es_profesor") ?? 0
+                ["p_es_profesor"]       = ObtenerValor(body, "es_profesor") ?? 0,
+                ["p_id_genero"]         = ObtenerValor(body, "id_genero") // NUEVO: 20 = Masculino, 21 = Femenino (tabla maestro)
             },
             outParams: new()
             {

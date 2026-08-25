@@ -12,7 +12,6 @@ public class PartidoController(AppDbContext db) : ControllerBase
 {
     // ── Buscar ───────────────────────────────────────────────────────────────
 
-    // GET api/PartidoRankeado/buscar?id_deporte=1&id_cancha=5&fecha=2026-02-15&hora=15:00
     [HttpGet("api/PartidoRankeado/buscar")]
     public async Task<IActionResult> BuscarRankeado(
         [FromQuery] int id_deporte,
@@ -34,7 +33,6 @@ public class PartidoController(AppDbContext db) : ControllerBase
         return Ok(rows);
     }
 
-    // GET api/PartidoAmistoso/buscar?id_deporte=1
     [HttpGet("api/PartidoAmistoso/buscar")]
     public async Task<IActionResult> BuscarAmistoso(
         [FromQuery] int id_deporte,
@@ -58,7 +56,6 @@ public class PartidoController(AppDbContext db) : ControllerBase
 
     // ── Crear ────────────────────────────────────────────────────────────────
 
-    // POST api/PartidoRankeado/crear
     [HttpPost("api/PartidoRankeado/crear")]
     public async Task<IActionResult> CrearRankeado([FromBody] Dictionary<string, object?> body)
     {
@@ -87,7 +84,6 @@ public class PartidoController(AppDbContext db) : ControllerBase
         return Ok(new { idPartidoCreado = result["p_id_partido_creado"], exito = true, mensaje = result["p_mensaje"] });
     }
 
-    // POST api/PartidoAmistoso/crear
     [HttpPost("api/PartidoAmistoso/crear")]
     public async Task<IActionResult> CrearAmistoso([FromBody] Dictionary<string, object?> body)
     {
@@ -118,7 +114,6 @@ public class PartidoController(AppDbContext db) : ControllerBase
 
     // ── Postular / Cancelar ──────────────────────────────────────────────────
 
-    // POST api/Partido/postular/{idPartido}
     [HttpPost("api/Partido/postular/{idPartido:int}")]
     public async Task<IActionResult> Postular(int idPartido)
     {
@@ -134,7 +129,6 @@ public class PartidoController(AppDbContext db) : ControllerBase
         return Ok(new { exito = true, mensaje = result["p_mensaje"] });
     }
 
-    // POST api/Partido/{id}/cancelar
     [HttpPost("api/Partido/{id:int}/cancelar")]
     public async Task<IActionResult> Cancelar(int id)
     {
@@ -152,7 +146,6 @@ public class PartidoController(AppDbContext db) : ControllerBase
 
     // ── Listado / Detalle ─────────────────────────────────────────────────────
 
-    // GET api/GestionPartido?id_deporte=1
     [HttpGet("api/GestionPartido")]
     public async Task<IActionResult> ListarMisPartidos([FromQuery] int id_deporte)
     {
@@ -163,7 +156,6 @@ public class PartidoController(AppDbContext db) : ControllerBase
         return Ok(rows);
     }
 
-    // GET api/GestionPartido/{id}
     [HttpGet("api/GestionPartido/{id:int}")]
     public async Task<IActionResult> DetallePartido(int id)
     {
@@ -171,10 +163,19 @@ public class PartidoController(AppDbContext db) : ControllerBase
         using var conn = db.CreateConnection();
         var rows = await SpHelper.QueryAsync(conn, "sp_solicitud_obtener_detalle",
             new() { ["p_id_partido"] = id, ["p_id_usuario"] = idUsuario });
-        return Ok(rows.FirstOrDefault());
+
+        var detalle = rows.FirstOrDefault();
+
+        // Bloquear acceso si el partido fue cancelado (estado = 0)
+        if (detalle == null)
+            return NotFound(new { mensaje = "Partido no encontrado." });
+
+        if (detalle.ContainsKey("estado") && Convert.ToInt32(detalle["estado"]) == 0)
+            return StatusCode(403, new { mensaje = "Este partido ha sido cancelado y ya no está disponible." });
+
+        return Ok(detalle);
     }
 
-    // POST api/GestionPartido/{id}/marcar-leido
     [HttpPost("api/GestionPartido/{id:int}/marcar-leido")]
     public async Task<IActionResult> MarcarLeido(int id)
     {
