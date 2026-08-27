@@ -28,7 +28,8 @@ public class PartidoController(AppDbContext db) : ControllerBase
             ["p_id_deporte"]    = id_deporte,
             ["p_filtro_cancha"] = id_cancha,
             ["p_filtro_fecha"]  = fecha,
-            ["p_filtro_hora"]   = hora
+            ["p_filtro_hora"]   = hora,
+            ["p_id_tipo_juego"] = id_tipo_juego   // ✅ añadido
         });
         return Ok(rows);
     }
@@ -49,7 +50,8 @@ public class PartidoController(AppDbContext db) : ControllerBase
             ["p_id_deporte"]    = id_deporte,
             ["p_filtro_cancha"] = id_cancha,
             ["p_filtro_fecha"]  = fecha,
-            ["p_filtro_hora"]   = hora
+            ["p_filtro_hora"]   = hora,
+            ["p_id_tipo_juego"] = id_tipo_juego   // ✅ añadido
         });
         return Ok(rows);
     }
@@ -156,25 +158,25 @@ public class PartidoController(AppDbContext db) : ControllerBase
         return Ok(rows);
     }
 
-    [HttpGet("api/GestionPartido/{id:int}")]
-    public async Task<IActionResult> DetallePartido(int id)
-    {
-        var idUsuario = JwtHelper.GetUserId(HttpContext);
-        using var conn = db.CreateConnection();
-        var rows = await SpHelper.QueryAsync(conn, "sp_solicitud_obtener_detalle",
-            new() { ["p_id_partido"] = id, ["p_id_usuario"] = idUsuario });
+[HttpGet("api/GestionPartido/{id:int}")]
+public async Task<IActionResult> DetallePartido(int id)
+{
+    var idUsuario = JwtHelper.GetUserId(HttpContext);
+    using var conn = db.CreateConnection();
+    var rows = await SpHelper.QueryAsync(conn, "sp_solicitud_obtener_detalle",
+        new() { ["p_id_partido"] = id, ["p_id_usuario"] = idUsuario });
 
-        var detalle = rows.FirstOrDefault();
+    var detalle = rows.FirstOrDefault();
 
-        // Bloquear acceso si el partido fue cancelado (estado = 0)
-        if (detalle == null)
-            return NotFound(new { mensaje = "Partido no encontrado." });
+    if (detalle == null)
+        return NotFound(new { mensaje = "Partido no encontrado." });
 
-        if (detalle.ContainsKey("estado") && Convert.ToInt32(detalle["estado"]) == 0)
-            return StatusCode(403, new { mensaje = "Este partido ha sido cancelado y ya no está disponible." });
+    // ✅ Corregido: Se lee 'estado_partido' (ID numérico) o se valida contra el texto
+    if (detalle.ContainsKey("estado_partido") && Convert.ToInt32(detalle["estado_partido"]) == 0)
+        return StatusCode(403, new { mensaje = "Este partido ha sido cancelado y ya no está disponible." });
 
-        return Ok(detalle);
-    }
+    return Ok(detalle);
+}
 
     [HttpPost("api/GestionPartido/{id:int}/marcar-leido")]
     public async Task<IActionResult> MarcarLeido(int id)

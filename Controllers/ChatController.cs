@@ -26,19 +26,36 @@ namespace AppFronton.Controllers
         [HttpGet("partido/{partidoId}")]
         public async Task<IActionResult> ObtenerMensajes(int partidoId)
         {
+            var usuarioIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value
+                                ?? User.FindFirst("sub")?.Value
+                                ?? User.FindFirst("id")?.Value;
+
+            int.TryParse(usuarioIdClaim, out int usuarioActualId);
+
             var mensajes = await _mensajesCollection
                 .Find(m => m.PartidoId == partidoId)
                 .SortBy(m => m.FechaEnvio)
                 .ToListAsync();
 
-            return Ok(mensajes);
+            var resultado = mensajes.Select(m => new
+            {
+                id_mensaje = m.Id,
+                partido_id = m.PartidoId,
+                usuario_id = m.UsuarioId,
+                nombre_usuario = m.NombreUsuario,
+                mensaje = m.Mensaje,
+                fecha_envio = m.FechaEnvio,
+                es_mio = m.UsuarioId == usuarioActualId
+            });
+
+            return Ok(resultado);
         }
 
         [HttpPost("enviar")]
         public async Task<IActionResult> EnviarMensaje([FromBody] CrearMensajeDto dto)
         {
-            var usuarioIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value 
-                                ?? User.FindFirst("sub")?.Value 
+            var usuarioIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value
+                                ?? User.FindFirst("sub")?.Value
                                 ?? User.FindFirst("id")?.Value;
 
             var nombreClaim = User.FindFirst(ClaimTypes.Name)?.Value ?? "Usuario";
@@ -46,10 +63,12 @@ namespace AppFronton.Controllers
             if (string.IsNullOrEmpty(usuarioIdClaim))
                 return Unauthorized();
 
+            int usuarioId = int.Parse(usuarioIdClaim);
+
             var nuevoMensaje = new MensajeChat
             {
                 PartidoId = dto.PartidoId,
-                UsuarioId = int.Parse(usuarioIdClaim),
+                UsuarioId = usuarioId,
                 NombreUsuario = nombreClaim,
                 Mensaje = dto.Mensaje,
                 FechaEnvio = DateTime.UtcNow
@@ -57,7 +76,18 @@ namespace AppFronton.Controllers
 
             await _mensajesCollection.InsertOneAsync(nuevoMensaje);
 
-            return Ok(nuevoMensaje);
+            var respuestaDto = new
+            {
+                id_mensaje = nuevoMensaje.Id,
+                partido_id = nuevoMensaje.PartidoId,
+                usuario_id = nuevoMensaje.UsuarioId,
+                nombre_usuario = nuevoMensaje.NombreUsuario,
+                mensaje = nuevoMensaje.Mensaje,
+                fecha_envio = nuevoMensaje.FechaEnvio,
+                es_mio = true
+            };
+
+            return Ok(respuestaDto);
         }
     }
 }
