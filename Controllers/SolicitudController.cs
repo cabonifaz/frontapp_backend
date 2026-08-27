@@ -49,7 +49,7 @@ public class SolicitudController(AppDbContext db) : ControllerBase
                 foto_cancha_url = g.First().ContainsKey("foto_cancha_url") ? g.First()["foto_cancha_url"] : null,
                 estado          = g.First().ContainsKey("estado") ? g.First()["estado"] : 1
             })
-            .Where(p => Convert.ToInt32(p.estado) == 1)
+            .Where(p => Convert.ToInt32(p.estado) != 0 && Convert.ToInt32(p.estado) != 2)
             .ToList<object>();
 
         // 3. Mapear solicitudes únicamente de los partidos activos
