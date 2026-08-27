@@ -36,7 +36,7 @@ public class SolicitudController(AppDbContext db) : ControllerBase
         if (filasActivas.Count == 0)
             return Ok(new { partidos = new List<object>(), solicitudes = new List<object>() });
 
-        // 2. Agrupar solo las filas activas por id_partido — solo los que siguen buscando oponente (estado = 1)
+        // 2. Agrupar solo las filas activas por id_partido — excluir Confirmado(30), Finalizado(31), Cancelado(32)
         var partidosAgrupados = filasActivas
             .GroupBy(r => r["id_partido"])
             .Where(g => g.Key != null)
@@ -47,10 +47,15 @@ public class SolicitudController(AppDbContext db) : ControllerBase
                 hora            = g.First()["hora"],
                 nombre_cancha   = g.First()["nombre_cancha"],
                 foto_cancha_url = g.First().ContainsKey("foto_cancha_url") ? g.First()["foto_cancha_url"] : null,
-                estado          = g.First().ContainsKey("estado") ? g.First()["estado"] : 1
+                estado          = g.First().ContainsKey("estado") ? g.First()["estado"] : 1,
+                id_estado       = g.First().ContainsKey("id_estado") ? Convert.ToInt32(g.First()["id_estado"]) : 28
             })
-            .Where(p => Convert.ToInt32(p.estado) != 0 && Convert.ToInt32(p.estado) != 2)
-            .ToList<object>();
+            .Where(p => p.id_estado == 28 || p.id_estado == 29) // Solo Buscando Oponente o Pendiente
+            .Select(p => (object)new
+            {
+                p.id_partido, p.fecha, p.hora, p.nombre_cancha, p.foto_cancha_url, p.estado
+            })
+            .ToList();
 
         // 3. Mapear solicitudes únicamente de los partidos activos
         var solicitudes = filasActivas
