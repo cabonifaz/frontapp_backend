@@ -36,7 +36,7 @@ public class SolicitudController(AppDbContext db) : ControllerBase
         if (filasActivas.Count == 0)
             return Ok(new { partidos = new List<object>(), solicitudes = new List<object>() });
 
-        // 2. Agrupar solo las filas activas por id_partido
+        // 2. Agrupar solo las filas activas por id_partido — solo los que siguen buscando oponente (estado = 1)
         var partidosAgrupados = filasActivas
             .GroupBy(r => r["id_partido"])
             .Where(g => g.Key != null)
@@ -49,6 +49,7 @@ public class SolicitudController(AppDbContext db) : ControllerBase
                 foto_cancha_url = g.First().ContainsKey("foto_cancha_url") ? g.First()["foto_cancha_url"] : null,
                 estado          = g.First().ContainsKey("estado") ? g.First()["estado"] : 1
             })
+            .Where(p => Convert.ToInt32(p.estado) == 1)
             .ToList<object>();
 
         // 3. Mapear solicitudes únicamente de los partidos activos
@@ -69,6 +70,35 @@ public class SolicitudController(AppDbContext db) : ControllerBase
             .ToList<object>();
 
         return Ok(new { partidos = partidosAgrupados, solicitudes });
+    }
+
+    // GET api/Solicitud/pendientes-recibidas
+    [HttpGet("pendientes-recibidas")]
+    public async Task<IActionResult> PendientesRecibidas()
+    {
+        var idUsuario = JwtHelper.GetUserId(HttpContext);
+        using var conn = db.CreateConnection();
+        var rows = await SpHelper.QueryAsync(conn, "sp_solicitud_listar_mis_solicitudes",
+            new() { ["p_id_usuario"] = idUsuario });
+
+        var pendientes = rows
+            .Where(r => r["id_solicitud"] != null)
+            .Where(r =>
+            {
+                if (r.TryGetValue("estado", out var est) && est != null)
+                    return Convert.ToInt32(est) == 1;
+                return true;
+            })
+            .Select(r => new
+            {
+                id_solicitud = r["id_solicitud"],
+                id_partido   = r["id_partido"],
+                nombre       = r["nombre"],
+            })
+            .DistinctBy(r => r.id_solicitud)
+            .ToList<object>();
+
+        return Ok(pendientes);
     }
 
     // POST api/Solicitud/{idSolicitud}/aceptar/{idRetador}
