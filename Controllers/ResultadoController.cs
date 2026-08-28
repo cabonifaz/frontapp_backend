@@ -56,12 +56,11 @@ public class GestionResultadoController(AppDbContext db) : ControllerBase
         var result = await SpHelper.ExecuteAsync(conn, "sp_resultado_publicar",
             inParams: new()
             {
-                ["p_id_partido"]        = idPartido,
-                ["p_id_jugador_local"]  = idJugadorLocal,
-                ["p_id_rival"]          = body.GetValueOrDefault("id_rival"),
-                ["p_calificacion_rival"]= body.GetValueOrDefault("calificacion_rival"),
-                ["p_comentario"]        = body.GetValueOrDefault("comentario"),
-                ["p_sets"]              = body.GetValueOrDefault("sets")?.ToString() // JSON string
+                ["p_id_partido"]         = idPartido,
+                ["p_id_jugador_local"]   = idJugadorLocal,
+                ["p_id_rival"]           = body.GetValueOrDefault("id_rival"),
+                ["p_calificacion_rival"] = body.GetValueOrDefault("calificacion_rival"),
+                ["p_comentario"]         = body.GetValueOrDefault("comentario"),
             },
             outParams: new()
             {
@@ -95,8 +94,6 @@ public class GestionResultadoController(AppDbContext db) : ControllerBase
                 ["p_id_partido"]      = idPartido,
                 ["p_id_usuario"]      = idUsuario,
                 ["p_esta_de_acuerdo"] = body.GetValueOrDefault("esta_de_acuerdo"),
-                ["p_id_rival"]        = body.GetValueOrDefault("id_rival"),
-                ["p_sets"]            = body.GetValueOrDefault("sets")?.ToString()
             },
             outParams: new()
             {
