@@ -3,8 +3,49 @@ using AppFronton.Helpers;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using MySqlConnector;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace AppFronton.Controllers;
+
+// ─── DTOs ────────────────────────────────────────────────────────────────────
+
+public class SetDto
+{
+    [JsonPropertyName("mi_puntaje")]
+    public int MiPuntaje { get; set; }
+
+    [JsonPropertyName("puntaje_rival")]
+    public int PuntajeRival { get; set; }
+}
+
+public class PublicarResultadoDto
+{
+    [JsonPropertyName("id_rival")] // Asegúrate de que este nombre coincida EXACTAMENTE con lo que mandas de React Native
+    public int? IdRival { get; set; }
+
+    [JsonPropertyName("calificacion_rival")]
+    public int? CalificacionRival { get; set; }
+
+    [JsonPropertyName("comentario")]
+    public string? Comentario { get; set; }
+
+    [JsonPropertyName("sets")]
+    public List<SetDto>? Sets { get; set; }
+}
+
+public class ConfirmarResultadoDto
+{
+    [JsonPropertyName("esta_de_acuerdo")]
+    public bool EstaDeAcuerdo { get; set; }
+
+    [JsonPropertyName("id_rival")]
+    public int? IdRival { get; set; }
+
+    [JsonPropertyName("sets")]
+    public List<SetDto>? Sets { get; set; }
+}
+// ─────────────────────────────────────────────────────────────────────────────
 
 [ApiController]
 [Route("api/Resultado")]
@@ -49,20 +90,20 @@ public class GestionResultadoController(AppDbContext db) : ControllerBase
 {
     // POST api/GestionResultado/{idPartido}/publicar
     [HttpPost("{idPartido:int}/publicar")]
-    public async Task<IActionResult> Publicar(int idPartido, [FromBody] Dictionary<string, object?> body)
+    public async Task<IActionResult> Publicar(int idPartido, [FromBody] PublicarResultadoDto body)
     {
         var idJugadorLocal = JwtHelper.GetUserId(HttpContext);
         using var conn = db.CreateConnection();
         var result = await SpHelper.ExecuteAsync(conn, "sp_resultado_publicar",
             inParams: new()
-            {
-                ["p_id_partido"]        = idPartido,
-                ["p_id_jugador_local"]  = idJugadorLocal,
-                ["p_id_rival"]          = body.GetValueOrDefault("id_rival"),
-                ["p_calificacion_rival"]= body.GetValueOrDefault("calificacion_rival"),
-                ["p_comentario"]        = body.GetValueOrDefault("comentario"),
-                ["p_sets"]              = body.GetValueOrDefault("sets")?.ToString() // JSON string
-            },
+{
+    ["p_id_partido"]         = idPartido,
+    ["p_id_jugador_local"]   = idJugadorLocal,
+    ["p_id_rival"]           = body.IdRival,
+    ["p_calificacion_rival"] = body.CalificacionRival,
+    ["p_comentario"]         = body.Comentario,
+    ["p_sets"]               = body.Sets != null ? JsonSerializer.Serialize(body.Sets) : null
+},
             outParams: new()
             {
                 ["p_id_resultado"] = MySqlDbType.Int32,
@@ -85,7 +126,7 @@ public class GestionResultadoController(AppDbContext db) : ControllerBase
 
     // POST api/GestionResultado/{idPartido}/confirmar
     [HttpPost("{idPartido:int}/confirmar")]
-    public async Task<IActionResult> Confirmar(int idPartido, [FromBody] Dictionary<string, object?> body)
+    public async Task<IActionResult> Confirmar(int idPartido, [FromBody] ConfirmarResultadoDto body)
     {
         var idUsuario = JwtHelper.GetUserId(HttpContext);
         using var conn = db.CreateConnection();
@@ -94,15 +135,15 @@ public class GestionResultadoController(AppDbContext db) : ControllerBase
             {
                 ["p_id_partido"]      = idPartido,
                 ["p_id_usuario"]      = idUsuario,
-                ["p_esta_de_acuerdo"] = body.GetValueOrDefault("esta_de_acuerdo"),
-                ["p_id_rival"]        = body.GetValueOrDefault("id_rival"),
-                ["p_sets"]            = body.GetValueOrDefault("sets")?.ToString()
+                ["p_esta_de_acuerdo"] = body.EstaDeAcuerdo,
+                ["p_id_rival"]        = body.IdRival,
+                ["p_sets"]            = body.Sets != null ? JsonSerializer.Serialize(body.Sets) : null
             },
             outParams: new()
             {
-                ["p_exito"]             = MySqlDbType.Byte,
-                ["p_estado"]            = MySqlDbType.VarChar,
-                ["p_puntos_transferidos"]= MySqlDbType.Decimal
+                ["p_exito"]              = MySqlDbType.Byte,
+                ["p_estado"]             = MySqlDbType.VarChar,
+                ["p_puntos_transferidos"] = MySqlDbType.Decimal
             });
 
         if (Convert.ToInt32(result["p_exito"]) == 0)
@@ -110,9 +151,9 @@ public class GestionResultadoController(AppDbContext db) : ControllerBase
 
         return Ok(new
         {
-            exito             = true,
-            estado            = result["p_estado"],
-            puntosTransferidos= result["p_puntos_transferidos"]
+            exito              = true,
+            estado             = result["p_estado"],
+            puntosTransferidos = result["p_puntos_transferidos"]
         });
     }
 }
