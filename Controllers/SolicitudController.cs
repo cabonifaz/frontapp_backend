@@ -23,42 +23,30 @@ public class SolicitudController(AppDbContext db) : ControllerBase
         if (rows.Count == 0)
             return Ok(new { partidos = new List<object>(), solicitudes = new List<object>() });
 
-        // 1. FILTRAR ESTRICTAMENTE: Descartar cualquier fila cuyo estado sea 0 (cancelado)
-        var filasActivas = rows.Where(r => 
-        {
-            if (r.TryGetValue("estado", out var est) && est != null)
-            {
-                return Convert.ToInt32(est) != 0;
-            }
-            return true;
-        }).ToList();
-
-        if (filasActivas.Count == 0)
-            return Ok(new { partidos = new List<object>(), solicitudes = new List<object>() });
-
-        // 2. Agrupar solo las filas activas por id_partido — excluir Confirmado(30), Finalizado(31), Cancelado(32)
-        var partidosAgrupados = filasActivas
+        // El SP devuelve p.id_estado AS "estado". Solo mostramos Buscando(28) y Pendiente(29).
+        var partidosAgrupados = rows
             .GroupBy(r => r["id_partido"])
             .Where(g => g.Key != null)
-            .Select(g => new
+            .Select(g =>
             {
-                id_partido      = g.Key,
-                fecha           = g.First()["fecha"],
-                hora            = g.First()["hora"],
-                nombre_cancha   = g.First()["nombre_cancha"],
-                foto_cancha_url = g.First().ContainsKey("foto_cancha_url") ? g.First()["foto_cancha_url"] : null,
-                estado          = g.First().ContainsKey("estado") ? g.First()["estado"] : 1,
-                id_estado       = g.First().ContainsKey("id_estado") ? Convert.ToInt32(g.First()["id_estado"]) : 28
+                var first = g.First();
+                // El SP alias "estado" contiene el id_estado real del partido
+                var idEstado = first.TryGetValue("estado", out var est) && est != null
+                    ? Convert.ToInt32(est) : 0;
+                return new { first, idEstado };
             })
-            .Where(p => p.id_estado == 28 || p.id_estado == 29) // Solo Buscando Oponente o Pendiente
-            .Select(p => (object)new
+            .Where(x => x.idEstado == 28 || x.idEstado == 29) // Solo Buscando Oponente o Pendiente
+            .Select(x => (object)new
             {
-                p.id_partido, p.fecha, p.hora, p.nombre_cancha, p.foto_cancha_url, p.estado
+                id_partido      = x.first["id_partido"],
+                fecha           = x.first["fecha"],
+                hora            = x.first["hora"],
+                nombre_cancha   = x.first["nombre_cancha"],
+                foto_cancha_url = x.first.ContainsKey("foto_cancha_url") ? x.first["foto_cancha_url"] : null,
             })
             .ToList();
 
-        // 3. Mapear solicitudes únicamente de los partidos activos
-        var solicitudes = filasActivas
+        var solicitudes = rows
             .Where(r => r["id_solicitud"] != null)
             .Select(r => new
             {
