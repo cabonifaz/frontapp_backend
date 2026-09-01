@@ -51,6 +51,34 @@ namespace AppFronton.Controllers
             return Ok(resultado);
         }
 
+        [HttpGet("clase/{claseId}")]
+        public async Task<IActionResult> ObtenerMensajesClase(int claseId)
+        {
+            var usuarioIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value
+                                ?? User.FindFirst("sub")?.Value
+                                ?? User.FindFirst("id")?.Value;
+
+            int.TryParse(usuarioIdClaim, out int usuarioActualId);
+
+            var mensajes = await _mensajesCollection
+                .Find(m => m.ClaseId == claseId)
+                .SortBy(m => m.FechaEnvio)
+                .ToListAsync();
+
+            var resultado = mensajes.Select(m => new
+            {
+                id_mensaje = m.Id,
+                clase_id = m.ClaseId,
+                usuario_id = m.UsuarioId,
+                nombre_usuario = m.NombreUsuario,
+                mensaje = m.Mensaje,
+                fecha_envio = m.FechaEnvio,
+                es_mio = m.UsuarioId == usuarioActualId
+            });
+
+            return Ok(resultado);
+        }
+
         [HttpPost("enviar")]
         public async Task<IActionResult> EnviarMensaje([FromBody] CrearMensajeDto dto)
         {
@@ -68,6 +96,7 @@ namespace AppFronton.Controllers
             var nuevoMensaje = new MensajeChat
             {
                 PartidoId = dto.PartidoId,
+                ClaseId = dto.ClaseId,
                 UsuarioId = usuarioId,
                 NombreUsuario = nombreClaim,
                 Mensaje = dto.Mensaje,
@@ -76,18 +105,17 @@ namespace AppFronton.Controllers
 
             await _mensajesCollection.InsertOneAsync(nuevoMensaje);
 
-            var respuestaDto = new
+            return Ok(new
             {
                 id_mensaje = nuevoMensaje.Id,
                 partido_id = nuevoMensaje.PartidoId,
+                clase_id = nuevoMensaje.ClaseId,
                 usuario_id = nuevoMensaje.UsuarioId,
                 nombre_usuario = nuevoMensaje.NombreUsuario,
                 mensaje = nuevoMensaje.Mensaje,
                 fecha_envio = nuevoMensaje.FechaEnvio,
                 es_mio = true
-            };
-
-            return Ok(respuestaDto);
+            });
         }
     }
 }

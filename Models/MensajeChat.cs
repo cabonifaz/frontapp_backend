@@ -10,7 +10,12 @@ namespace AppFronton.Models
         public string? Id { get; set; }
 
         [BsonElement("partidoId")]
+        [BsonIgnoreIfDefault]
         public int PartidoId { get; set; }
+
+        [BsonElement("claseId")]
+        [BsonIgnoreIfDefault]
+        public int ClaseId { get; set; }
 
         [BsonElement("usuarioId")]
         public int UsuarioId { get; set; }
@@ -28,6 +33,7 @@ namespace AppFronton.Models
     public class CrearMensajeDto
     {
         public int PartidoId { get; set; }
+        public int ClaseId { get; set; }
         public string Mensaje { get; set; } = string.Empty;
     }
 }

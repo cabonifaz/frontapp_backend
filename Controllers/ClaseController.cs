@@ -153,6 +153,17 @@ public class ClaseController(AppDbContext db) : ControllerBase
         return Ok(new { exito = true, mensaje = result["p_mensaje"] });
     }
 
+    // GET api/Clase/solicitudes-profesor?id_deporte=1
+    [HttpGet("solicitudes-profesor")]
+    public async Task<IActionResult> SolicitudesProfesor([FromQuery] int id_deporte)
+    {
+        var idProfesor = JwtHelper.GetUserId(HttpContext);
+        using var conn = db.CreateConnection();
+        var rows = await SpHelper.QueryAsync(conn, "sp_clase_solicitudes_profesor",
+            new() { ["p_id_profesor"] = idProfesor, ["p_id_deporte"] = id_deporte });
+        return Ok(rows);
+    }
+
     // GET api/Clase/mis-clases?id_deporte=1
     [HttpGet("mis-clases")]
     public async Task<IActionResult> MisClases([FromQuery] int id_deporte)
