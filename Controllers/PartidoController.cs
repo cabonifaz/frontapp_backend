@@ -131,6 +131,21 @@ public class PartidoController(AppDbContext db) : ControllerBase
         return Ok(new { exito = true, mensaje = result["p_mensaje"] });
     }
 
+    [HttpPost("api/Partido/{idPartido:int}/repostular")]
+    public async Task<IActionResult> Repostular(int idPartido)
+    {
+        var idUsuario = JwtHelper.GetUserId(HttpContext);
+        using var conn = db.CreateConnection();
+        var result = await SpHelper.ExecuteAsync(conn, "sp_partido_repostular",
+            inParams: new() { ["p_id_partido"] = idPartido, ["p_id_usuario"] = idUsuario },
+            outParams: new() { ["p_exito"] = MySqlDbType.Byte, ["p_mensaje"] = MySqlDbType.VarChar });
+
+        if (Convert.ToInt32(result["p_exito"]) == 0)
+            return BadRequest(new { mensaje = result["p_mensaje"] });
+
+        return Ok(new { exito = true, mensaje = result["p_mensaje"] });
+    }
+
     [HttpPost("api/Partido/{id:int}/cancelar")]
     public async Task<IActionResult> Cancelar(int id)
     {
