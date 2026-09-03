@@ -180,7 +180,7 @@ public async Task<IActionResult> Completar(int id)
     public async Task<IActionResult> Detalle(int id)
     {
         using var conn = db.CreateConnection();
-        var rows = await SpHelper.QueryAsync(conn, "sp_clase_buscar_profesores",
+        var rows = await SpHelper.QueryAsync(conn, "sp_clase_obtener_detalle",
             new() { ["p_id_clase"] = id });
         return Ok(rows.FirstOrDefault());
     }
