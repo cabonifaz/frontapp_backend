@@ -106,7 +106,23 @@ public async Task<IActionResult> Completar(int id)
     });
 }
 
-// POST api/Clase/{id}/cancelar
+// POST api/Clase/{id}/rechazar
+    [HttpPost("{id:int}/rechazar")]
+    public async Task<IActionResult> Rechazar(int id)
+    {
+        var idProfesor = JwtHelper.GetUserId(HttpContext);
+        using var conn = db.CreateConnection();
+        var result = await SpHelper.ExecuteAsync(conn, "sp_clase_rechazar",
+            inParams: new() { ["p_id_clase"] = id, ["p_id_profesor"] = idProfesor },
+            outParams: new() { ["p_exito"] = MySqlDbType.Byte, ["p_mensaje"] = MySqlDbType.VarChar });
+
+        if (Convert.ToInt32(result["p_exito"]) == 0)
+            return BadRequest(new { mensaje = result["p_mensaje"] });
+
+        return Ok(new { exito = true, mensaje = result["p_mensaje"] });
+    }
+
+    // POST api/Clase/{id}/cancelar
     [HttpPost("{id:int}/cancelar")]
     public async Task<IActionResult> Cancelar(int id)
     {

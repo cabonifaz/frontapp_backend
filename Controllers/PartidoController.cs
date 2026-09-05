@@ -99,7 +99,8 @@ public class PartidoController(AppDbContext db) : ControllerBase
                 ["p_id_cancha"]     = body.GetValueOrDefault("id_cancha"),
                 ["p_fecha"]         = body.GetValueOrDefault("fecha"),
                 ["p_hora"]          = body.GetValueOrDefault("hora"),
-                ["p_id_tipo_juego"] = body.GetValueOrDefault("id_tipo_juego")
+                ["p_id_tipo_juego"] = body.GetValueOrDefault("id_tipo_juego"),
+                ["p_num_sets"]      = body.GetValueOrDefault("num_sets") ?? (object)5
             },
             outParams: new()
             {
