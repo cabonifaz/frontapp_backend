@@ -34,7 +34,7 @@ public class UsuarioController(AppDbContext db) : ControllerBase
                 ["p_id_usuario"]         = idUsuario,
                 ["p_id_deporte"]         = body.GetValueOrDefault("id_deporte"),
                 ["p_nivel_fisico"]       = body.GetValueOrDefault("nivel_fisico"),
-                ["p_id_nivel_juego"]     = body.GetValueOrDefault("id_nivel_juego"),
+                ["p_nivel_juego"]        = body.GetValueOrDefault("nivel_juego"),
                 ["p_partidos_semanales"] = body.GetValueOrDefault("partidos_semanales"),
                 ["p_lecciones_semanales"]= body.GetValueOrDefault("lecciones_semanales"),
                 ["p_edad"]               = body.GetValueOrDefault("edad"),
