@@ -136,8 +136,6 @@ public class GestionResultadoController(AppDbContext db) : ControllerBase
                 ["p_id_partido"]      = idPartido,
                 ["p_id_usuario"]      = idUsuario,
                 ["p_esta_de_acuerdo"] = body.EstaDeAcuerdo,
-                ["p_id_rival"]        = body.IdRival,
-                ["p_sets"]            = body.Sets != null ? JsonSerializer.Serialize(body.Sets) : null
             },
             outParams: new()
             {
