@@ -1,5 +1,6 @@
 using AppFronton.Data;
 using AppFronton.Helpers;
+using AppFronton.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using MySqlConnector;
@@ -29,7 +30,7 @@ public class PartidoController(AppDbContext db) : ControllerBase
             ["p_filtro_cancha"] = id_cancha,
             ["p_filtro_fecha"]  = fecha,
             ["p_filtro_hora"]   = hora,
-            ["p_id_tipo_juego"] = id_tipo_juego   // ✅ añadido
+            ["p_id_tipo_juego"] = id_tipo_juego
         });
         return Ok(rows);
     }
@@ -51,7 +52,7 @@ public class PartidoController(AppDbContext db) : ControllerBase
             ["p_filtro_cancha"] = id_cancha,
             ["p_filtro_fecha"]  = fecha,
             ["p_filtro_hora"]   = hora,
-            ["p_id_tipo_juego"] = id_tipo_juego   // ✅ añadido
+            ["p_id_tipo_juego"] = id_tipo_juego
         });
         return Ok(rows);
     }
@@ -95,6 +96,38 @@ public class PartidoController(AppDbContext db) : ControllerBase
             inParams: new()
             {
                 ["p_id_usuario"]    = idUsuario,
+                ["p_id_deporte"]    = body.GetValueOrDefault("id_deporte"),
+                ["p_id_cancha"]     = body.GetValueOrDefault("id_cancha"),
+                ["p_fecha"]         = body.GetValueOrDefault("fecha"),
+                ["p_hora"]          = body.GetValueOrDefault("hora"),
+                ["p_id_tipo_juego"] = body.GetValueOrDefault("id_tipo_juego"),
+                ["p_num_sets"]      = body.GetValueOrDefault("num_sets") ?? (object)5
+            },
+            outParams: new()
+            {
+                ["p_id_partido_creado"] = MySqlDbType.Int32,
+                ["p_exito"]             = MySqlDbType.Byte,
+                ["p_mensaje"]           = MySqlDbType.VarChar
+            });
+
+        if (Convert.ToInt32(result["p_exito"]) == 0)
+            return BadRequest(new { mensaje = result["p_mensaje"] });
+
+        return Ok(new { idPartidoCreado = result["p_id_partido_creado"], exito = true, mensaje = result["p_mensaje"] });
+    }
+
+    // NUEVO ─ Amistoso con reto directo a un amigo (omite la convocatoria abierta)
+    // body: { id_rival, id_deporte, id_cancha, fecha, hora, id_tipo_juego, num_sets }
+    [HttpPost("api/PartidoAmistoso/crear-directo")]
+    public async Task<IActionResult> CrearAmistosoDirecto([FromBody] Dictionary<string, object?> body)
+    {
+        var idUsuario = JwtHelper.GetUserId(HttpContext);
+        using var conn = db.CreateConnection();
+        var result = await SpHelper.ExecuteAsync(conn, "sp_partido_crear_amistoso_directo",
+            inParams: new()
+            {
+                ["p_id_usuario"]    = idUsuario,
+                ["p_id_rival"]      = body.GetValueOrDefault("id_rival"),
                 ["p_id_deporte"]    = body.GetValueOrDefault("id_deporte"),
                 ["p_id_cancha"]     = body.GetValueOrDefault("id_cancha"),
                 ["p_fecha"]         = body.GetValueOrDefault("fecha"),
@@ -162,6 +195,45 @@ public class PartidoController(AppDbContext db) : ControllerBase
         return Ok(new { exito = true, mensaje = result["p_mensaje"] });
     }
 
+    // ── Reto directo: lado del amigo invitado ────────────────────────────────
+
+    // NUEVO ─ GET api/Partido/retos-recibidos?id_deporte=17
+    [HttpGet("api/Partido/retos-recibidos")]
+    public async Task<IActionResult> RetosRecibidos([FromQuery] int? id_deporte)
+    {
+        var idUsuario = JwtHelper.GetUserId(HttpContext);
+        using var conn = db.CreateConnection();
+        var rows = await SpHelper.QueryAsync(conn, "sp_partido_listar_retos_directos_recibidos",
+            new() { ["p_id_usuario"] = idUsuario, ["p_id_deporte"] = id_deporte });
+        return Ok(rows);
+    }
+
+    // NUEVO ─ POST api/Partido/{idPartido}/responder-reto   body: { "aceptar": true }
+    [HttpPost("api/Partido/{idPartido:int}/responder-reto")]
+    public async Task<IActionResult> ResponderReto(int idPartido, [FromBody] AceptarDto dto)
+    {
+        var idUsuario = JwtHelper.GetUserId(HttpContext);
+        using var conn = db.CreateConnection();
+        var result = await SpHelper.ExecuteAsync(conn, "sp_partido_responder_reto_directo",
+            inParams: new()
+            {
+                ["p_id_partido"] = idPartido,
+                ["p_id_usuario"] = idUsuario,
+                ["p_aceptar"]    = dto.Aceptar ? 1 : 0
+            },
+            outParams: new()
+            {
+                ["p_exito"]          = MySqlDbType.Byte,
+                ["p_mensaje"]        = MySqlDbType.VarChar,
+                ["p_nombre_creador"] = MySqlDbType.VarChar
+            });
+
+        if (Convert.ToInt32(result["p_exito"]) == 0)
+            return BadRequest(new { mensaje = result["p_mensaje"] });
+
+        return Ok(new { exito = true, mensaje = result["p_mensaje"], nombreCreador = result["p_nombre_creador"] });
+    }
+
     // ── Listado / Detalle ─────────────────────────────────────────────────────
 
     [HttpGet("api/GestionPartido")]
@@ -174,25 +246,24 @@ public class PartidoController(AppDbContext db) : ControllerBase
         return Ok(rows);
     }
 
-[HttpGet("api/GestionPartido/{id:int}")]
-public async Task<IActionResult> DetallePartido(int id)
-{
-    var idUsuario = JwtHelper.GetUserId(HttpContext);
-    using var conn = db.CreateConnection();
-    var rows = await SpHelper.QueryAsync(conn, "sp_solicitud_obtener_detalle",
-        new() { ["p_id_partido"] = id, ["p_id_usuario"] = idUsuario });
+    [HttpGet("api/GestionPartido/{id:int}")]
+    public async Task<IActionResult> DetallePartido(int id)
+    {
+        var idUsuario = JwtHelper.GetUserId(HttpContext);
+        using var conn = db.CreateConnection();
+        var rows = await SpHelper.QueryAsync(conn, "sp_solicitud_obtener_detalle",
+            new() { ["p_id_partido"] = id, ["p_id_usuario"] = idUsuario });
 
-    var detalle = rows.FirstOrDefault();
+        var detalle = rows.FirstOrDefault();
 
-    if (detalle == null)
-        return NotFound(new { mensaje = "Partido no encontrado." });
+        if (detalle == null)
+            return NotFound(new { mensaje = "Partido no encontrado." });
 
-    // ✅ Corregido: Se lee 'estado_partido' (ID numérico) o se valida contra el texto
-    if (detalle.ContainsKey("estado_partido") && Convert.ToInt32(detalle["estado_partido"]) == 0)
-        return StatusCode(403, new { mensaje = "Este partido ha sido cancelado y ya no está disponible." });
+        if (detalle.ContainsKey("estado_partido") && Convert.ToInt32(detalle["estado_partido"]) == 0)
+            return StatusCode(403, new { mensaje = "Este partido ha sido cancelado y ya no está disponible." });
 
-    return Ok(detalle);
-}
+        return Ok(detalle);
+    }
 
     [HttpPost("api/GestionPartido/{id:int}/marcar-leido")]
     public async Task<IActionResult> MarcarLeido(int id)
