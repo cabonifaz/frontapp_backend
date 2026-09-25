@@ -11,23 +11,25 @@ namespace AppFronton.Controllers;
 [Authorize]
 public class ClaseController(AppDbContext db) : ControllerBase
 {
-    // GET api/Clase/profesores-disponibles?id_cancha=1&fecha=2026-02-15&hora=15:00&id_deporte=1
+    // GET api/Clase/profesores-disponibles?id_cancha=1&fecha=2026-02-15&hora=15:00&id_deporte=1&duracion_minutos=120
     [HttpGet("profesores-disponibles")]
     public async Task<IActionResult> ProfesoresDisponibles(
         [FromQuery] int id_deporte,
         [FromQuery] int id_cancha,
         [FromQuery] string fecha,
-        [FromQuery] string hora)
+        [FromQuery] string hora,
+        [FromQuery] int? duracion_minutos)   // NUEVO: para validar cruces de horario
     {
         var idAlumno = JwtHelper.GetUserId(HttpContext);
         using var conn = db.CreateConnection();
         var rows = await SpHelper.QueryAsync(conn, "sp_clase_buscar_profesores", new()
         {
-            ["p_id_alumno"]  = idAlumno,
-            ["p_id_deporte"] = id_deporte,
-            ["p_id_cancha"]  = id_cancha,
-            ["p_fecha"]      = fecha,
-            ["p_hora"]       = hora
+            ["p_id_alumno"]        = idAlumno,
+            ["p_id_deporte"]       = id_deporte,
+            ["p_id_cancha"]        = id_cancha,
+            ["p_fecha"]            = fecha,
+            ["p_hora"]             = hora,
+            ["p_duracion_minutos"] = duracion_minutos ?? 60
         });
         return Ok(rows);
     }
@@ -79,41 +81,41 @@ public class ClaseController(AppDbContext db) : ControllerBase
     }
 
     // POST api/Clase/{id}/completar
-[HttpPost("{id:int}/completar")]
-public async Task<IActionResult> Completar(int id)
-{
-    var idProfesor = JwtHelper.GetUserId(HttpContext);
-    using var conn = db.CreateConnection();
-    var result = await SpHelper.ExecuteAsync(conn, "sp_clase_completar",
-        inParams: new() { ["p_id_clase"] = id, ["p_id_profesor"] = idProfesor },
-        outParams: new()
-        {
-            ["p_exito"]          = MySqlDbType.Byte,
-            ["p_mensaje"]        = MySqlDbType.VarChar,
-            ["p_puntos_ganados"] = MySqlDbType.Decimal,
-            ["p_nuevo_puntaje"]  = MySqlDbType.Decimal
-        });
-
-    if (Convert.ToInt32(result["p_exito"]) == 0)
-        return BadRequest(new { mensaje = result["p_mensaje"] });
-
-    return Ok(new
+    [HttpPost("{id:int}/completar")]
+    public async Task<IActionResult> Completar(int id)
     {
-        exito             = true,
-        mensaje           = result["p_mensaje"],
-        puntosGanados     = result["p_puntos_ganados"],
-        nuevoPuntajeTotal = result["p_nuevo_puntaje"]
-    });
-}
+        var idProfesor = JwtHelper.GetUserId(HttpContext);
+        using var conn = db.CreateConnection();
+        var result = await SpHelper.ExecuteAsync(conn, "sp_clase_completar",
+            inParams: new() { ["p_id_clase"] = id, ["p_id_profesor"] = idProfesor },
+            outParams: new()
+            {
+                ["p_exito"]          = MySqlDbType.Byte,
+                ["p_mensaje"]        = MySqlDbType.VarChar,
+                ["p_puntos_ganados"] = MySqlDbType.Decimal,
+                ["p_nuevo_puntaje"]  = MySqlDbType.Decimal
+            });
 
-// POST api/Clase/{id}/rechazar
+        if (Convert.ToInt32(result["p_exito"]) == 0)
+            return BadRequest(new { mensaje = result["p_mensaje"] });
+
+        return Ok(new
+        {
+            exito             = true,
+            mensaje           = result["p_mensaje"],
+            puntosGanados     = result["p_puntos_ganados"],
+            nuevoPuntajeTotal = result["p_nuevo_puntaje"]
+        });
+    }
+
+    // POST api/Clase/{id}/rechazar
     [HttpPost("{id:int}/rechazar")]
     public async Task<IActionResult> Rechazar(int id)
     {
         var idProfesor = JwtHelper.GetUserId(HttpContext);
         using var conn = db.CreateConnection();
         var result = await SpHelper.ExecuteAsync(conn, "sp_clase_rechazar",
-            inParams: new() { ["p_id_clase"] = id, ["p_id_profesor"] = idProfesor },
+            inParams: new() { ["p_id_clase"] = id, ["p_id_usuario"] = idProfesor },
             outParams: new() { ["p_exito"] = MySqlDbType.Byte, ["p_mensaje"] = MySqlDbType.VarChar });
 
         if (Convert.ToInt32(result["p_exito"]) == 0)
@@ -147,7 +149,7 @@ public async Task<IActionResult> Completar(int id)
         return Ok(new { exito = true, mensaje = result["p_mensaje"] });
     }
 
-    // POST api/Clase/{id}/feedback
+    // POST api/Clase/{id}/feedback   body: { calificacion: 1-5, comentario }
     [HttpPost("{id:int}/feedback")]
     public async Task<IActionResult> DejarFeedback(int id, [FromBody] Dictionary<string, object?> body)
     {
