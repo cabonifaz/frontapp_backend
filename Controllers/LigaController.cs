@@ -86,6 +86,61 @@ public class LigaController(AppDbContext db) : ControllerBase
         return Ok(new { exito = true, mensaje = result["p_mensaje"], estadoInscripcion = result["p_estado_inscripcion"] });
     }
 
+    // NUEVO ─ POST api/Liga/{idLiga}/inscribirse-dobles   body: { id_companero }
+    // El capitán inscribe a su equipo; el compañero debe aceptar.
+    [HttpPost("{idLiga:int}/inscribirse-dobles")]
+    public async Task<IActionResult> InscribirseDobles(int idLiga, [FromBody] Dictionary<string, object?> body)
+    {
+        var idUsuario = JwtHelper.GetUserId(HttpContext);
+        using var conn = db.CreateConnection();
+        var result = await SpHelper.ExecuteAsync(conn, "sp_liga_dobles_inscribirse",
+            inParams: new()
+            {
+                ["p_id_liga"]      = idLiga,
+                ["p_id_usuario"]   = idUsuario,
+                ["p_id_companero"] = body.GetValueOrDefault("id_companero")
+            },
+            outParams: new()
+            {
+                ["p_exito"]              = MySqlDbType.Byte,
+                ["p_mensaje"]            = MySqlDbType.VarChar,
+                ["p_estado_inscripcion"] = MySqlDbType.VarChar
+            });
+
+        if (Convert.ToInt32(result["p_exito"]) == 0)
+            return BadRequest(new { mensaje = result["p_mensaje"] });
+
+        return Ok(new { exito = true, mensaje = result["p_mensaje"], estadoInscripcion = result["p_estado_inscripcion"] });
+    }
+
+    // NUEVO ─ POST api/Liga/inscripcion/{idInscripcion}/responder   body: { aceptar: true }
+    // El compañero acepta o rechaza formar el equipo.
+    [HttpPost("inscripcion/{idInscripcion:int}/responder")]
+    public async Task<IActionResult> ResponderEquipo(int idInscripcion, [FromBody] Dictionary<string, object?> body)
+    {
+        var idUsuario = JwtHelper.GetUserId(HttpContext);
+        var aceptar = body.TryGetValue("aceptar", out var v) && v != null && v.ToString()!.ToLower() is "true" or "1";
+        using var conn = db.CreateConnection();
+        var result = await SpHelper.ExecuteAsync(conn, "sp_liga_dobles_responder_equipo",
+            inParams: new()
+            {
+                ["p_id_liga_inscripcion"] = idInscripcion,
+                ["p_id_usuario"]          = idUsuario,
+                ["p_aceptar"]             = aceptar ? 1 : 0
+            },
+            outParams: new()
+            {
+                ["p_exito"]              = MySqlDbType.Byte,
+                ["p_mensaje"]            = MySqlDbType.VarChar,
+                ["p_estado_inscripcion"] = MySqlDbType.VarChar
+            });
+
+        if (Convert.ToInt32(result["p_exito"]) == 0)
+            return BadRequest(new { mensaje = result["p_mensaje"] });
+
+        return Ok(new { exito = true, mensaje = result["p_mensaje"], estadoInscripcion = result["p_estado_inscripcion"] });
+    }
+
     // POST api/Liga/{idLiga}/retar   body: { id_rival, id_cancha, fecha, hora }
     [HttpPost("{idLiga:int}/retar")]
     public async Task<IActionResult> Retar(int idLiga, [FromBody] Dictionary<string, object?> body)
