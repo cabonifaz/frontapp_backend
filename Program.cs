@@ -18,6 +18,10 @@ builder.Configuration.AddEnvironmentVariables();
 // ── DbContext ────────────────────────────────────────────────────────────────
 builder.Services.AddSingleton<AppDbContext>();
 
+// ── NUEVO (APP-AVO-041): envío de notificaciones push (solo si PUSH_WORKER=true en .env) ──
+builder.Services.AddHttpClient();
+builder.Services.AddHostedService<AppFronton.Services.PushNotificationWorker>();
+
 // ── JWT Authentication ───────────────────────────────────────────────────────
 var jwtSecret = Environment.GetEnvironmentVariable("JWT_SECRET")!;
 builder.Services

@@ -93,6 +93,51 @@ public class ResultadoController(AppDbContext db) : ControllerBase
             new() { ["p_id_partido"] = id, ["p_id_usuario"] = idUsuario });
         return Ok(rows.FirstOrDefault());
     }
+
+    // NUEVO (APP-AVO-040): carrusel del Home. Resultados confirmados de los últimos 30 días,
+    // primero de amigos, luego de jugadores que sigo y luego el resto.
+    // GET api/Resultado/feed?limite=20
+    [HttpGet("feed")]
+    public async Task<IActionResult> Feed([FromQuery] int limite = 20)
+    {
+        var idUsuario = JwtHelper.GetUserId(HttpContext);
+        using var conn = db.CreateConnection();
+        var rows = await SpHelper.QueryAsync(conn, "sp_resultado_listar_feed", new()
+        {
+            ["p_id_usuario"] = idUsuario,
+            ["p_id_jugador"] = null,
+            ["p_limite"]     = Math.Clamp(limite, 1, 50)
+        });
+        return Ok(rows);
+    }
+
+    // NUEVO (APP-AVO-039): resultados confirmados de otro jugador (pestaña Resultados de su perfil)
+    // GET api/Resultado/jugador/{idJugador}?limite=50
+    [HttpGet("jugador/{idJugador:int}")]
+    public async Task<IActionResult> DeJugador(int idJugador, [FromQuery] int limite = 50)
+    {
+        var idUsuario = JwtHelper.GetUserId(HttpContext);
+        using var conn = db.CreateConnection();
+        var rows = await SpHelper.QueryAsync(conn, "sp_resultado_listar_feed", new()
+        {
+            ["p_id_usuario"] = idUsuario,
+            ["p_id_jugador"] = idJugador,
+            ["p_limite"]     = Math.Clamp(limite, 1, 100)
+        });
+        return Ok(rows);
+    }
+    // NUEVO (fotos del encuentro): GET api/Resultado/{idPartido}/fotos
+    // -> { fotos: [{ id_partido_foto, url, es_mia }], puedeSubir: bool }
+    [HttpGet("{idPartido:int}/fotos")]
+    public async Task<IActionResult> Fotos(int idPartido)
+    {
+        var idUsuario = JwtHelper.GetUserId(HttpContext);
+        using var conn = db.CreateConnection();
+        var (rows, outs) = await SpHelper.QueryWithOutAsync(conn, "sp_partido_foto_listar",
+            inParams: new() { ["p_id_partido"] = idPartido, ["p_id_usuario"] = idUsuario },
+            outParams: new() { ["p_puede_subir"] = MySqlDbType.Byte });
+        return Ok(new { fotos = rows, puedeSubir = Convert.ToInt32(outs["p_puede_subir"] ?? 0) == 1 });
+    }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -200,5 +245,51 @@ public class GestionResultadoController(AppDbContext db) : ControllerBase
             return BadRequest(new { mensaje = result["p_mensaje"] });
 
         return Ok(new { exito = true, mensaje = result["p_mensaje"], estado = result["p_estado"] });
+    }
+
+    // NUEVO (fotos del encuentro): POST api/GestionResultado/{idPartido}/fotos   body: { "url": "https://..." }
+    [HttpPost("{idPartido:int}/fotos")]
+    public async Task<IActionResult> AgregarFoto(int idPartido, [FromBody] Dictionary<string, object?> body)
+    {
+        var idUsuario = JwtHelper.GetUserId(HttpContext);
+        using var conn = db.CreateConnection();
+        var result = await SpHelper.ExecuteAsync(conn, "sp_partido_foto_agregar",
+            inParams: new()
+            {
+                ["p_id_partido"] = idPartido,
+                ["p_id_usuario"] = idUsuario,
+                ["p_url"]        = body.GetValueOrDefault("url")
+            },
+            outParams: new()
+            {
+                ["p_exito"]   = MySqlDbType.Byte,
+                ["p_mensaje"] = MySqlDbType.VarChar,
+                ["p_id_foto"] = MySqlDbType.Int32
+            });
+
+        if (Convert.ToInt32(result["p_exito"]) == 0)
+            return BadRequest(new { mensaje = result["p_mensaje"] });
+
+        return Ok(new { exito = true, idFoto = result["p_id_foto"] });
+    }
+
+    // NUEVO (fotos del encuentro): DELETE api/GestionResultado/fotos/{idFoto}
+    [HttpDelete("fotos/{idFoto:int}")]
+    public async Task<IActionResult> EliminarFoto(int idFoto)
+    {
+        var idUsuario = JwtHelper.GetUserId(HttpContext);
+        using var conn = db.CreateConnection();
+        var result = await SpHelper.ExecuteAsync(conn, "sp_partido_foto_eliminar",
+            inParams: new() { ["p_id_foto"] = idFoto, ["p_id_usuario"] = idUsuario },
+            outParams: new()
+            {
+                ["p_exito"]   = MySqlDbType.Byte,
+                ["p_mensaje"] = MySqlDbType.VarChar
+            });
+
+        if (Convert.ToInt32(result["p_exito"]) == 0)
+            return BadRequest(new { mensaje = result["p_mensaje"] });
+
+        return Ok(new { exito = true });
     }
 }

@@ -135,4 +135,70 @@ public class UsuarioController(AppDbContext db) : ControllerBase
 
         return Ok(new { exito = true, mensaje = result["p_mensaje"] });
     }
+
+    // NUEVO: datos privados del usuario (para "Editar perfil" y Detalles de mi perfil)
+    // GET api/Usuario/mis-datos
+    [HttpGet("mis-datos")]
+    public async Task<IActionResult> MisDatos()
+    {
+        var idUsuario = JwtHelper.GetUserId(HttpContext);
+        using var conn = db.CreateConnection();
+        var rows = await SpHelper.QueryAsync(conn, "sp_usuario_obtener_mis_datos",
+            new() { ["p_id_usuario"] = idUsuario });
+        return Ok(rows.FirstOrDefault());
+    }
+
+    // NUEVO: guarda "Editar perfil"
+    // PUT api/Usuario/perfil   body: { nombre, apellidos, telefono, fecha_nacimiento: "1995-06-20", sobre_mi }
+    [HttpPut("perfil")]
+    public async Task<IActionResult> ActualizarPerfil([FromBody] Dictionary<string, object?> body)
+    {
+        var idUsuario = JwtHelper.GetUserId(HttpContext);
+        using var conn = db.CreateConnection();
+        var result = await SpHelper.ExecuteAsync(conn, "sp_usuario_actualizar_perfil",
+            inParams: new()
+            {
+                ["p_id_usuario"]       = idUsuario,
+                ["p_nombre"]           = body.GetValueOrDefault("nombre"),
+                ["p_apellidos"]        = body.GetValueOrDefault("apellidos"),
+                ["p_telefono"]         = body.GetValueOrDefault("telefono"),
+                ["p_fecha_nacimiento"] = body.GetValueOrDefault("fecha_nacimiento"),
+                ["p_sobre_mi"]         = body.GetValueOrDefault("sobre_mi")
+            },
+            outParams: new()
+            {
+                ["p_exito"]   = MySqlDbType.Byte,
+                ["p_mensaje"] = MySqlDbType.VarChar
+            });
+
+        if (Convert.ToInt32(result["p_exito"]) == 0)
+            return BadRequest(new { mensaje = result["p_mensaje"] });
+
+        return Ok(new { exito = true, mensaje = result["p_mensaje"] });
+    }
+
+    // NUEVO (APP-AVO-036)
+    // PUT api/Usuario/mano-dominante   body: { "codigo": "MANO_DIESTRO" | "MANO_ZURDO" | "MANO_AMBIDIESTRO" }
+    [HttpPut("mano-dominante")]
+    public async Task<IActionResult> ActualizarManoDominante([FromBody] Dictionary<string, object?> body)
+    {
+        var idUsuario = JwtHelper.GetUserId(HttpContext);
+        using var conn = db.CreateConnection();
+        var result = await SpHelper.ExecuteAsync(conn, "sp_usuario_actualizar_mano_dominante",
+            inParams: new()
+            {
+                ["p_id_usuario"] = idUsuario,
+                ["p_codigo"]     = body.GetValueOrDefault("codigo")
+            },
+            outParams: new()
+            {
+                ["p_exito"]   = MySqlDbType.Byte,
+                ["p_mensaje"] = MySqlDbType.VarChar
+            });
+
+        if (Convert.ToInt32(result["p_exito"]) == 0)
+            return BadRequest(new { mensaje = result["p_mensaje"] });
+
+        return Ok(new { exito = true, mensaje = result["p_mensaje"] });
+    }
 }
