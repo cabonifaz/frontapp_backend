@@ -10,7 +10,9 @@ Env.Load();
 var builder = WebApplication.CreateBuilder(args);
 
 // ── CLAVE: Permitir que escuche peticiones desde cualquier IP de la red local (Wi-Fi) ──
-builder.WebHost.UseUrls("http://0.0.0.0:5000");
+// Railway (y otros hosts) indican el puerto en la variable PORT; en tu PC sigue siendo 5000
+var puerto = Environment.GetEnvironmentVariable("PORT") ?? "5000";
+builder.WebHost.UseUrls($"http://0.0.0.0:{puerto}");
 
 // ── Inyectar variables de .env en IConfiguration ─────────────────────────────
 builder.Configuration.AddEnvironmentVariables();
