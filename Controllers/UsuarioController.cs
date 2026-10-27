@@ -99,6 +99,18 @@ public class UsuarioController(AppDbContext db) : ControllerBase
         return Ok(rows);
     }
 
+    // NUEVO (07) ─ GET api/Usuario/deportes-disponibles
+    // Todos los deportes con: habilitado (se puede elegir), tengo_perfil y mis datos en ese deporte
+    [HttpGet("deportes-disponibles")]
+    public async Task<IActionResult> DeportesDisponibles()
+    {
+        var idUsuario = JwtHelper.GetUserId(HttpContext);
+        using var conn = db.CreateConnection();
+        var rows = await SpHelper.QueryAsync(conn, "sp_deporte_listar_disponibles",
+            new() { ["p_id_usuario"] = idUsuario });
+        return Ok(rows);
+    }
+
     // GET api/Usuario/mis-resultados?pagina=1&tamano_pagina=10
     [HttpGet("mis-resultados")]
     public async Task<IActionResult> MisResultados([FromQuery] int pagina = 1, [FromQuery] int tamano_pagina = 10)

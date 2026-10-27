@@ -147,12 +147,25 @@ public class ResultadoController(AppDbContext db) : ControllerBase
 [Authorize]
 public class GestionResultadoController(AppDbContext db) : ControllerBase
 {
+    // NUEVO (07): valida el marcador de cada set (sin empates; a 15 o 21 y por 2 desde el empate final)
+    private static async Task<string?> ValidarSetsAsync(MySqlConnection conn, int idPartido, List<SetDto>? sets)
+    {
+        if (sets == null || sets.Count == 0) return null;
+        var r = await SpHelper.ExecuteAsync(conn, "sp_resultado_validar_sets",
+            inParams: new() { ["p_id_partido"] = idPartido, ["p_sets"] = JsonSerializer.Serialize(sets) },
+            outParams: new() { ["p_valido"] = MySqlDbType.Byte, ["p_mensaje"] = MySqlDbType.VarChar });
+        return Convert.ToInt32(r["p_valido"]) == 1 ? null : Convert.ToString(r["p_mensaje"]);
+    }
+
     // POST api/GestionResultado/{idPartido}/publicar
     [HttpPost("{idPartido:int}/publicar")]
     public async Task<IActionResult> Publicar(int idPartido, [FromBody] PublicarResultadoDto body)
     {
         var idJugadorLocal = JwtHelper.GetUserId(HttpContext);
         using var conn = db.CreateConnection();
+        var errorSets = await ValidarSetsAsync(conn, idPartido, body.Sets);   // NUEVO (07)
+        if (errorSets != null) return BadRequest(new { mensaje = errorSets });
+
         var result = await SpHelper.ExecuteAsync(conn, "sp_resultado_publicar",
             inParams: new()
             {
@@ -226,6 +239,9 @@ public class GestionResultadoController(AppDbContext db) : ControllerBase
     {
         var idUsuario = JwtHelper.GetUserId(HttpContext);
         using var conn = db.CreateConnection();
+        var errorSets = await ValidarSetsAsync(conn, idPartido, body.Sets);   // NUEVO (07)
+        if (errorSets != null) return BadRequest(new { mensaje = errorSets });
+
         var result = await SpHelper.ExecuteAsync(conn, "sp_resultado_revisar",
             inParams: new()
             {

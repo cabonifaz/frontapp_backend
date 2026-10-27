@@ -117,6 +117,7 @@ public class SolicitudController(AppDbContext db) : ControllerBase
         if (Convert.ToInt32(result["p_exito"]) == 0)
             return BadRequest(new { mensaje = result["p_mensaje"] });
 
+        await NotificacionHelper.SincronizarPartidoAsync(conn, idSolicitud, idCreador);   // NUEVO (07): avisos
         return Ok(new { exito = true, mensaje = result["p_mensaje"], nombreRetador = result["p_nombre_retador"] });
     }
 

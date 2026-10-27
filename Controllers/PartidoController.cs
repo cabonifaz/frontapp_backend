@@ -145,6 +145,7 @@ public class PartidoController(AppDbContext db) : ControllerBase
         if (Convert.ToInt32(result["p_exito"]) == 0)
             return BadRequest(new { mensaje = result["p_mensaje"] });
 
+        await NotificacionHelper.SincronizarPartidoAsync(conn, result["p_id_partido_creado"], idUsuario);   // NUEVO (07): avisos
         return Ok(new { idPartidoCreado = result["p_id_partido_creado"], exito = true, mensaje = result["p_mensaje"] });
     }
 
@@ -162,6 +163,7 @@ public class PartidoController(AppDbContext db) : ControllerBase
         if (Convert.ToInt32(result["p_exito"]) == 0)
             return BadRequest(new { mensaje = result["p_mensaje"] });
 
+        await NotificacionHelper.SincronizarPartidoAsync(conn, idPartido, idUsuario);   // NUEVO (07): avisos
         return Ok(new { exito = true, mensaje = result["p_mensaje"] });
     }
 
@@ -177,6 +179,7 @@ public class PartidoController(AppDbContext db) : ControllerBase
         if (Convert.ToInt32(result["p_exito"]) == 0)
             return BadRequest(new { mensaje = result["p_mensaje"] });
 
+        await NotificacionHelper.SincronizarPartidoAsync(conn, idPartido, idUsuario);   // NUEVO (07): avisos
         return Ok(new { exito = true, mensaje = result["p_mensaje"] });
     }
 
@@ -231,6 +234,7 @@ public class PartidoController(AppDbContext db) : ControllerBase
         if (Convert.ToInt32(result["p_exito"]) == 0)
             return BadRequest(new { mensaje = result["p_mensaje"] });
 
+        await NotificacionHelper.SincronizarPartidoAsync(conn, idPartido, idUsuario);   // NUEVO (07): avisos
         return Ok(new { exito = true, mensaje = result["p_mensaje"], nombreCreador = result["p_nombre_creador"] });
     }
 

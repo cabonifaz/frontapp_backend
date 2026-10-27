@@ -88,6 +88,9 @@ public class MaestroController(AppDbContext db) : ControllerBase
     {
         using var conn = db.CreateConnection();
         var idUsuario = JwtHelper.GetUserId(HttpContext); // ← faltaba; el SP lo pide como IN p_id_usuario
+        // NUEVO (07): solo un administrador puede cambiar la configuración
+        if (!await AdminHelper.EsAdminAsync(conn, idUsuario))
+            return StatusCode(403, new { mensaje = "Solo un administrador puede cambiar la configuración." });
         var result = await SpHelper.ExecuteAsync(conn, "sp_maestro_actualizar_configuracion",
             inParams: new()
             {

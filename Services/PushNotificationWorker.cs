@@ -136,6 +136,14 @@ public class PushNotificationWorker(AppDbContext db, IHttpClientFactory httpFact
                 "RESULTADO_CONFIRMADO"    => ("Result confirmed", "Your match result is now official."),
                 "RESULTADO_AMIGO"         => ("New result", $"{a ?? "A player you follow"} has a new result. Check it out!"),
                 "NUEVO_SEGUIDOR"          => ("New follower", $"{a ?? "Someone"} started following you."),
+                // NUEVO (07)
+                "RETO_RECIBIDO"           => ("New challenge", $"{a ?? "A player"} wants to play your match. Accept or decline the challenge."),
+                "RETO_DIRECTO"            => ("You've been challenged", $"{a ?? "A player"} challenged you to a match."),
+                "RETO_ACEPTADO"           => ("Match confirmed", $"{a ?? "Your opponent"} confirmed the match. See you on court!"),
+                "PARTIDO_AMIGO"           => ("Upcoming match", $"{a ?? "A player you follow"} has a confirmed match."),
+                "PARTIDO_EN_VIVO"         => ("Live now", $"{a ?? "A player you follow"} is playing right now. Follow the score live!"),
+                "INSCRIPCION_ACTIVA"      => ("Registration active", "Your payment was approved. You're now in the league."),
+                "INSCRIPCION_RECHAZADA"   => ("Registration declined", "We couldn't validate your league payment. Contact us for help."),
                 _                         => ("Ranked", "You have a new notification."),
             };
         }
@@ -145,6 +153,14 @@ public class PushNotificationWorker(AppDbContext db, IHttpClientFactory httpFact
             "RESULTADO_CONFIRMADO"    => ("Resultado confirmado", "El resultado de tu partido ya es oficial."),
             "RESULTADO_AMIGO"         => ("Nuevo resultado", $"{a ?? "Un jugador que sigues"} tiene un nuevo resultado. ¡Míralo!"),
             "NUEVO_SEGUIDOR"          => ("Nuevo seguidor", $"{a ?? "Alguien"} empezó a seguirte."),
+            // NUEVO (07)
+            "RETO_RECIBIDO"           => ("Nuevo reto", $"{a ?? "Un jugador"} quiere jugar tu convocatoria. Acepta o rechaza el reto."),
+            "RETO_DIRECTO"            => ("Te retaron", $"{a ?? "Un jugador"} te retó a un partido."),
+            "RETO_ACEPTADO"           => ("Partido confirmado", $"{a ?? "Tu rival"} confirmó el partido. ¡Nos vemos en la cancha!"),
+            "PARTIDO_AMIGO"           => ("Partido confirmado", $"{a ?? "Un jugador que sigues"} tiene un partido confirmado."),
+            "PARTIDO_EN_VIVO"         => ("En vivo", $"{a ?? "Un jugador que sigues"} está jugando ahora. ¡Sigue el marcador en vivo!"),
+            "INSCRIPCION_ACTIVA"      => ("Inscripción activa", "Validamos tu pago. Ya estás inscrito en la liga."),
+            "INSCRIPCION_RECHAZADA"   => ("Inscripción rechazada", "No pudimos validar el pago de tu liga. Escríbenos para ayudarte."),
             _                         => ("Ranked", "Tienes una nueva notificación."),
         };
     }
