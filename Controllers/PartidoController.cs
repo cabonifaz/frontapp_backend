@@ -198,6 +198,55 @@ public class PartidoController(AppDbContext db) : ControllerBase
         return Ok(new { exito = true, mensaje = result["p_mensaje"] });
     }
 
+    // ── NUEVO (08): retirarse y sustitutos ──────────────────────────────────
+
+    // POST api/Partido/{idPartido}/retirarse
+    // Antes de empezar: RETIRO (queda en gris; el otro lado puede reclamar walkover o, en dobles,
+    // su compañero invita a un sustituto). Con el partido en vivo: ABANDONO.
+    [HttpPost("api/Partido/{idPartido:int}/retirarse")]
+    public async Task<IActionResult> Retirarse(int idPartido)
+    {
+        var idUsuario = JwtHelper.GetUserId(HttpContext);
+        using var conn = db.CreateConnection();
+        var result = await SpHelper.ExecuteAsync(conn, "sp_partido_retirarse",
+            inParams: new() { ["p_id_partido"] = idPartido, ["p_id_usuario"] = idUsuario },
+            outParams: new() { ["p_exito"] = MySqlDbType.Byte, ["p_mensaje"] = MySqlDbType.VarChar, ["p_tipo"] = MySqlDbType.VarChar });
+
+        if (Convert.ToInt32(result["p_exito"]) == 0)
+            return BadRequest(new { mensaje = result["p_mensaje"] });
+        return Ok(new { exito = true, mensaje = result["p_mensaje"], tipo = result["p_tipo"] });
+    }
+
+    // POST api/Partido/{idPartido}/sustituto   body: { "id_amigo": 12 }   (dobles)
+    [HttpPost("api/Partido/{idPartido:int}/sustituto")]
+    public async Task<IActionResult> InvitarSustituto(int idPartido, [FromBody] Dictionary<string, object?> body)
+    {
+        var idUsuario = JwtHelper.GetUserId(HttpContext);
+        using var conn = db.CreateConnection();
+        var result = await SpHelper.ExecuteAsync(conn, "sp_partido_invitar_sustituto",
+            inParams: new() { ["p_id_partido"] = idPartido, ["p_id_usuario"] = idUsuario, ["p_id_amigo"] = body.GetValueOrDefault("id_amigo") },
+            outParams: new() { ["p_exito"] = MySqlDbType.Byte, ["p_mensaje"] = MySqlDbType.VarChar });
+
+        if (Convert.ToInt32(result["p_exito"]) == 0)
+            return BadRequest(new { mensaje = result["p_mensaje"] });
+        return Ok(new { exito = true, mensaje = result["p_mensaje"] });
+    }
+
+    // POST api/Partido/{idPartido}/sustituto/responder   body: { "aceptar": true }
+    [HttpPost("api/Partido/{idPartido:int}/sustituto/responder")]
+    public async Task<IActionResult> ResponderSustituto(int idPartido, [FromBody] AceptarDto dto)
+    {
+        var idUsuario = JwtHelper.GetUserId(HttpContext);
+        using var conn = db.CreateConnection();
+        var result = await SpHelper.ExecuteAsync(conn, "sp_partido_responder_sustituto",
+            inParams: new() { ["p_id_partido"] = idPartido, ["p_id_usuario"] = idUsuario, ["p_aceptar"] = dto.Aceptar ? 1 : 0 },
+            outParams: new() { ["p_exito"] = MySqlDbType.Byte, ["p_mensaje"] = MySqlDbType.VarChar });
+
+        if (Convert.ToInt32(result["p_exito"]) == 0)
+            return BadRequest(new { mensaje = result["p_mensaje"] });
+        return Ok(new { exito = true, mensaje = result["p_mensaje"] });
+    }
+
     // ── Reto directo: lado del amigo invitado ────────────────────────────────
 
     // NUEVO ─ GET api/Partido/retos-recibidos?id_deporte=17

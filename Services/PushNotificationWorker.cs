@@ -144,6 +144,12 @@ public class PushNotificationWorker(AppDbContext db, IHttpClientFactory httpFact
                 "PARTIDO_EN_VIVO"         => ("Live now", $"{a ?? "A player you follow"} is playing right now. Follow the score live!"),
                 "INSCRIPCION_ACTIVA"      => ("Registration active", "Your payment was approved. You're now in the league."),
                 "INSCRIPCION_RECHAZADA"   => ("Registration declined", "We couldn't validate your league payment. Contact us for help."),
+                // NUEVO (08)
+                "JUGADOR_RETIRADO"        => ("Player withdrew", $"{a ?? "A player"} withdrew from your match. Open it to see your options."),
+                "SUSTITUTO_INVITACION"    => ("Substitute invitation", $"{a ?? "A friend"} invited you to replace their partner in a doubles match."),
+                "SUSTITUTO_ACEPTADO"      => ("Substitute confirmed", $"{a ?? "A player"} joined your match as a substitute."),
+                "SUSTITUTO_RECHAZADO"     => ("Substitute declined", $"{a ?? "Your friend"} can't play. Invite someone else."),
+                "VIVO_DELEGADO"           => ("Keep the live score", $"{a ?? "A friend"} gave you permission to keep the live score of their match."),
                 _                         => ("Ranked", "You have a new notification."),
             };
         }
@@ -161,6 +167,12 @@ public class PushNotificationWorker(AppDbContext db, IHttpClientFactory httpFact
             "PARTIDO_EN_VIVO"         => ("En vivo", $"{a ?? "Un jugador que sigues"} está jugando ahora. ¡Sigue el marcador en vivo!"),
             "INSCRIPCION_ACTIVA"      => ("Inscripción activa", "Validamos tu pago. Ya estás inscrito en la liga."),
             "INSCRIPCION_RECHAZADA"   => ("Inscripción rechazada", "No pudimos validar el pago de tu liga. Escríbenos para ayudarte."),
+            // NUEVO (08)
+            "JUGADOR_RETIRADO"        => ("Jugador retirado", $"{a ?? "Un jugador"} se retiró de tu partido. Ábrelo para ver tus opciones."),
+            "SUSTITUTO_INVITACION"    => ("Te invitan a jugar", $"{a ?? "Un amigo"} te invitó a reemplazar a su pareja en un partido de dobles."),
+            "SUSTITUTO_ACEPTADO"      => ("Sustituto confirmado", $"{a ?? "Un jugador"} se unió a tu partido como sustituto."),
+            "SUSTITUTO_RECHAZADO"     => ("Sustituto no disponible", $"{a ?? "Tu amigo"} no puede jugar. Invita a otro."),
+            "VIVO_DELEGADO"           => ("Anota el marcador", $"{a ?? "Un amigo"} te dio permiso para anotar en vivo el marcador de su partido."),
             _                         => ("Ranked", "Tienes una nueva notificación."),
         };
     }

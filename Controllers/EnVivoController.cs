@@ -47,7 +47,7 @@ public class EnVivoController(AppDbContext db) : ControllerBase
         if (fila == null) return NotFound(new { mensaje = "Partido no encontrado." });
 
         // Los JSON de MySQL llegan como texto: se devuelven como listas
-        foreach (var clave in new[] { "jugadores_json", "sets_json" })
+        foreach (var clave in new[] { "jugadores_json", "sets_json", "eventos_json", "delegados_json" })
         {
             var texto = Convert.ToString(fila.GetValueOrDefault(clave));
             fila[clave.Replace("_json", "")] = string.IsNullOrWhiteSpace(texto)
@@ -103,6 +103,30 @@ public class EnVivoController(AppDbContext db) : ControllerBase
                 ["p_lado"]       = body.GetValueOrDefault("lado"),
                 ["p_delta"]      = body.GetValueOrDefault("delta")
             },
+            outParams: new() { ["p_exito"] = MySqlDbType.Byte, ["p_mensaje"] = MySqlDbType.VarChar });
+        return Respuesta(result);
+    }
+
+    // NUEVO (08) ─ POST api/EnVivo/{idPartido}/delegar   body: { id_amigo }   (un amigo puede anotar el marcador)
+    [HttpPost("{idPartido:int}/delegar")]
+    public async Task<IActionResult> Delegar(int idPartido, [FromBody] Dictionary<string, object?> body)
+    {
+        var idUsuario = JwtHelper.GetUserId(HttpContext);
+        using var conn = db.CreateConnection();
+        var result = await SpHelper.ExecuteAsync(conn, "sp_vivo_delegar",
+            inParams: new() { ["p_id_partido"] = idPartido, ["p_id_usuario"] = idUsuario, ["p_id_amigo"] = body.GetValueOrDefault("id_amigo") },
+            outParams: new() { ["p_exito"] = MySqlDbType.Byte, ["p_mensaje"] = MySqlDbType.VarChar });
+        return Respuesta(result);
+    }
+
+    // NUEVO (08) ─ POST api/EnVivo/{idPartido}/delegar/quitar   body: { id_amigo }
+    [HttpPost("{idPartido:int}/delegar/quitar")]
+    public async Task<IActionResult> QuitarDelegado(int idPartido, [FromBody] Dictionary<string, object?> body)
+    {
+        var idUsuario = JwtHelper.GetUserId(HttpContext);
+        using var conn = db.CreateConnection();
+        var result = await SpHelper.ExecuteAsync(conn, "sp_vivo_quitar_delegado",
+            inParams: new() { ["p_id_partido"] = idPartido, ["p_id_usuario"] = idUsuario, ["p_id_amigo"] = body.GetValueOrDefault("id_amigo") },
             outParams: new() { ["p_exito"] = MySqlDbType.Byte, ["p_mensaje"] = MySqlDbType.VarChar });
         return Respuesta(result);
     }

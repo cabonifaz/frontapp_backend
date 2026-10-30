@@ -23,6 +23,8 @@ builder.Services.AddSingleton<AppDbContext>();
 // ── NUEVO (APP-AVO-041): envío de notificaciones push (solo si PUSH_WORKER=true en .env) ──
 builder.Services.AddHttpClient();
 builder.Services.AddHostedService<AppFronton.Services.PushNotificationWorker>();
+// NUEVO (08): confirma solos los resultados sin respuesta en 24 h (también con PUSH_WORKER=true)
+builder.Services.AddHostedService<AppFronton.Services.ResultadosVencidosWorker>();
 
 // ── JWT Authentication ───────────────────────────────────────────────────────
 var jwtSecret = Environment.GetEnvironmentVariable("JWT_SECRET")!;
