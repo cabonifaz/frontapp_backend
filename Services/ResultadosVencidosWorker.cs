@@ -8,6 +8,8 @@ namespace AppFronton.Services;
 /// NUEVO (08): cada 10 minutos confirma los resultados que el rival no confirmó ni corrigió
 /// dentro del plazo (CFG_HORAS_LIMITE_REVISION = 24 h). Toda la lógica está en
 /// sp_resultado_auto_aceptar_vencidos (suma los puntos, finaliza el partido y avisa).
+/// NUEVO (10): también pasa a "No jugado" los partidos confirmados sin resultado
+/// 6 horas después del inicio (sp_partido_marcar_no_jugados).
 ///
 /// Igual que el envío de push, solo corre si PUSH_WORKER=true (en el servidor, no en las PCs),
 /// para que no lo ejecuten varias máquinas a la vez.
@@ -40,6 +42,20 @@ public class ResultadosVencidosWorker(AppDbContext db, ILogger<ResultadosVencido
             catch (Exception ex)
             {
                 log.LogWarning(ex, "Error confirmando resultados vencidos.");
+            }
+
+            // NUEVO (10): confirmados sin resultado 6 h después del inicio → "No jugado"
+            try
+            {
+                using var conn = db.CreateConnection();
+                var r = await SpHelper.ExecuteAsync(conn, "sp_partido_marcar_no_jugados",
+                    outParams: new() { ["p_cantidad"] = MySqlDbType.Int32 });
+                var total = Convert.ToInt32(r["p_cantidad"] ?? 0);
+                if (total > 0) log.LogInformation("Partidos marcados como No jugado: {Total}", total);
+            }
+            catch (Exception ex)
+            {
+                log.LogWarning(ex, "Error marcando partidos no jugados.");
             }
 
             try { await Task.Delay(Intervalo, stoppingToken); }

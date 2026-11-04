@@ -150,6 +150,7 @@ public class PushNotificationWorker(AppDbContext db, IHttpClientFactory httpFact
                 "SUSTITUTO_ACEPTADO"      => ("Substitute confirmed", $"{a ?? "A player"} joined your match as a substitute."),
                 "SUSTITUTO_RECHAZADO"     => ("Substitute declined", $"{a ?? "Your friend"} can't play. Invite someone else."),
                 "VIVO_DELEGADO"           => ("Keep the live score", $"{a ?? "A friend"} gave you permission to keep the live score of their match."),
+                "PARTIDO_NO_JUGADO"       => ("Match not played", "No result was posted in time, so your match was marked as not played."),
                 _                         => ("Ranked", "You have a new notification."),
             };
         }
@@ -173,6 +174,7 @@ public class PushNotificationWorker(AppDbContext db, IHttpClientFactory httpFact
             "SUSTITUTO_ACEPTADO"      => ("Sustituto confirmado", $"{a ?? "Un jugador"} se unió a tu partido como sustituto."),
             "SUSTITUTO_RECHAZADO"     => ("Sustituto no disponible", $"{a ?? "Tu amigo"} no puede jugar. Invita a otro."),
             "VIVO_DELEGADO"           => ("Anota el marcador", $"{a ?? "Un amigo"} te dio permiso para anotar en vivo el marcador de su partido."),
+            "PARTIDO_NO_JUGADO"       => ("Partido no jugado", "Nadie colocó el resultado a tiempo, así que tu partido quedó como No jugado."),
             _                         => ("Ranked", "Tienes una nueva notificación."),
         };
     }
