@@ -107,6 +107,24 @@ public class EnVivoController(AppDbContext db) : ControllerBase
         return Respuesta(result);
     }
 
+    // NUEVO (11) ─ POST api/EnVivo/{idPartido}/confirmar-set   body: { numero_set }
+    // El set con marcador ganador queda "por confirmar" hasta que quien anota lo confirma.
+    [HttpPost("{idPartido:int}/confirmar-set")]
+    public async Task<IActionResult> ConfirmarSet(int idPartido, [FromBody] Dictionary<string, object?> body)
+    {
+        var idUsuario = JwtHelper.GetUserId(HttpContext);
+        using var conn = db.CreateConnection();
+        var result = await SpHelper.ExecuteAsync(conn, "sp_vivo_confirmar_set",
+            inParams: new()
+            {
+                ["p_id_partido"] = idPartido,
+                ["p_id_usuario"] = idUsuario,
+                ["p_numero_set"] = body.GetValueOrDefault("numero_set")
+            },
+            outParams: new() { ["p_exito"] = MySqlDbType.Byte, ["p_mensaje"] = MySqlDbType.VarChar });
+        return Respuesta(result);
+    }
+
     // NUEVO (08) ─ POST api/EnVivo/{idPartido}/delegar   body: { id_amigo }   (un amigo puede anotar el marcador)
     [HttpPost("{idPartido:int}/delegar")]
     public async Task<IActionResult> Delegar(int idPartido, [FromBody] Dictionary<string, object?> body)
