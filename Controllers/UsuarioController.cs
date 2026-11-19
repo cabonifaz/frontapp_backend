@@ -2,6 +2,8 @@ using AppFronton.Data;
 using AppFronton.Helpers;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using MongoDB.Driver;
+using AppFronton.Models;
 using MySqlConnector;
 
 namespace AppFronton.Controllers;
@@ -210,6 +212,44 @@ public class UsuarioController(AppDbContext db) : ControllerBase
 
         if (Convert.ToInt32(result["p_exito"]) == 0)
             return BadRequest(new { mensaje = result["p_mensaje"] });
+
+        return Ok(new { exito = true, mensaje = result["p_mensaje"] });
+    }
+
+    // POST api/Usuario/eliminar-cuenta
+    // Elimina la cuenta de quien llama (requisito de Google Play / App Store).
+    // La BD anonimiza y desactiva la cuenta; aquí además se borran sus mensajes de chat (MongoDB).
+    [HttpPost("eliminar-cuenta")]
+    public async Task<IActionResult> EliminarCuenta()
+    {
+        var idUsuario = JwtHelper.GetUserId(HttpContext);
+        using var conn = db.CreateConnection();
+        var result = await SpHelper.ExecuteAsync(conn, "sp_usuario_eliminar_cuenta",
+            inParams: new() { ["p_id_usuario"] = idUsuario },
+            outParams: new()
+            {
+                ["p_exito"]   = MySqlDbType.Byte,
+                ["p_mensaje"] = MySqlDbType.VarChar
+            });
+
+        if (Convert.ToInt32(result["p_exito"]) == 0)
+            return BadRequest(new { mensaje = result["p_mensaje"] });
+
+        // Mensajes del chat: si MongoDB falla no se revierte la eliminación (la cuenta ya está anonimizada)
+        try
+        {
+            var uri = Environment.GetEnvironmentVariable("MONGODB_URI");
+            if (!string.IsNullOrWhiteSpace(uri))
+            {
+                var nombreBd = Environment.GetEnvironmentVariable("MONGODB_DB") ?? "AppFrontonChat";
+                var mensajes = new MongoClient(uri).GetDatabase(nombreBd).GetCollection<MensajeChat>("MensajesPartido");
+                await mensajes.DeleteManyAsync(m => m.UsuarioId == idUsuario);
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"No se pudieron borrar los mensajes del usuario {idUsuario}: {ex.Message}");
+        }
 
         return Ok(new { exito = true, mensaje = result["p_mensaje"] });
     }
