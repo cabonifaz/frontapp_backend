@@ -49,8 +49,15 @@ builder.Services
 builder.Services.AddAuthorization();
 
 // ── CORS (permite el front React Native en dev) ──────────────────────────────
-builder.Services.AddCors(opt =>
-    opt.AddDefaultPolicy(p => p.AllowAnyOrigin().AllowAnyHeader().AllowAnyMethod()));
+// La app móvil no usa CORS. Solo se permiten navegadores desde los orígenes listados en CORS_ORIGINS
+// (separados por comas, p. ej. "https://app.geeky-tech.es,https://admin.geeky-tech.es"). Vacío = ninguno.
+var origenesPermitidos = (Environment.GetEnvironmentVariable("CORS_ORIGINS") ?? "")
+    .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+builder.Services.AddCors(opt => opt.AddDefaultPolicy(p =>
+{
+    if (origenesPermitidos.Length > 0)
+        p.WithOrigins(origenesPermitidos).AllowAnyHeader().AllowAnyMethod();
+}));
 
 // ── Controllers ──────────────────────────────────────────────────────────────
 builder.Services.AddControllers();
