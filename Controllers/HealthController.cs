@@ -18,27 +18,38 @@ public class HealthController(AppDbContext db, IConfiguration config) : Controll
         "MONGODB_URI", "MONGODB_DB", "PUSH_WORKER"
     };
 
+    // Público: solo "ok" / "error" (sirve para el monitoreo del hosting). No revela nada interno.
+    // Detalle completo: GET api/Health?clave=<valor de la variable HEALTH_KEY> (solo si HEALTH_KEY está definida).
     [HttpGet]
-    public async Task<IActionResult> Get()
+    public async Task<IActionResult> Get([FromQuery] string? clave = null)
     {
-        var variables = Variables.ToDictionary(v => v, v => !string.IsNullOrWhiteSpace(config[v]));
-
         var jwt = config["JWT_SECRET"] ?? "";
         string baseDatos;
+        bool dbOk;
         try
         {
             using var conn = db.CreateConnection();
             await conn.OpenAsync();
             using var cmd = new MySqlCommand("SELECT DATABASE()", conn);
             baseDatos = $"OK: conectado a {await cmd.ExecuteScalarAsync()}";
+            dbOk = true;
         }
         catch (Exception ex)
         {
             baseDatos = $"ERROR: {ex.GetType().Name}: {ex.Message}";
+            dbOk = false;
         }
 
-        return Ok(new
+        var claveDetalle = config["HEALTH_KEY"];
+        var verDetalle = !string.IsNullOrWhiteSpace(claveDetalle) && clave == claveDetalle;
+
+        if (!verDetalle)
+            return StatusCode(dbOk ? 200 : 503, new { status = dbOk ? "ok" : "error" });
+
+        var variables = Variables.ToDictionary(v => v, v => !string.IsNullOrWhiteSpace(config[v]));
+        return StatusCode(dbOk ? 200 : 503, new
         {
+            status = dbOk ? "ok" : "error",
             variables,
             jwtSecretSuficiente = System.Text.Encoding.UTF8.GetByteCount(jwt) >= 32,
             dbHost  = config["DB_HOST"],

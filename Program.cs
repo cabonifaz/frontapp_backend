@@ -27,7 +27,9 @@ builder.Services.AddHostedService<AppFronton.Services.PushNotificationWorker>();
 builder.Services.AddHostedService<AppFronton.Services.ResultadosVencidosWorker>();
 
 // ── JWT Authentication ───────────────────────────────────────────────────────
-var jwtSecret = Environment.GetEnvironmentVariable("JWT_SECRET")!;
+var jwtSecret = Environment.GetEnvironmentVariable("JWT_SECRET");
+if (string.IsNullOrWhiteSpace(jwtSecret) || System.Text.Encoding.UTF8.GetByteCount(jwtSecret) < 32)
+    throw new InvalidOperationException("Falta la variable de entorno JWT_SECRET (mínimo 32 caracteres).");
 builder.Services
     .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
@@ -83,8 +85,12 @@ builder.Services.AddSwaggerGen(c =>
 // ── Build ────────────────────────────────────────────────────────────────────
 var app = builder.Build();
 
-app.UseSwagger();
-app.UseSwaggerUI();
+// Swagger solo en desarrollo, o si se activa a propósito con ENABLE_SWAGGER=true (nunca en producción por defecto)
+if (app.Environment.IsDevelopment() || Environment.GetEnvironmentVariable("ENABLE_SWAGGER") == "true")
+{
+    app.UseSwagger();
+    app.UseSwaggerUI();
+}
 
 app.UseCors();
 app.UseAuthentication();
